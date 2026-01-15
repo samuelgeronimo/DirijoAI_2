@@ -1,0 +1,30 @@
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        "brand-dark": "#0f172a",
+        "brand-accent": "#fbbf24",
+        "brand-cta": "#16a34a",
+        "brand-danger": "#ef4444",
+      },
+      fontFamily: {
+        "display": ["var(--font-lexend)", "sans-serif"],
+        "sans": ["var(--font-lexend)", "sans-serif"],
+      },
+      backgroundImage: {
+        'hero-pattern': "linear-gradient(to bottom, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.7)), url('https://lh3.googleusercontent.com/aida-public/AB6AXuA7rAG6O2TRu9O0kbIgyQfYPdmaZ-7svyEiJrtIq8g_TmxY5tS072RO9Atte8cu9RvUaFaDTMEM-zZkgusmSGYpbUtVuKPYS2sweTl0eI5HFMSoZEdkWqORh6nEe0TV0_EaDAHLMAuIUGOeFql5XVLGOz6hlEdRCpZ7LYOjN1xkO9ReHNDdne01sDVSO4mNWU0r7WrJgwpObyJ_sbRyd5HxuoIYv3LDdN23k3SZQt4nRIoAyBbVEAtxLLxL7-qVdnnB2OqCDBv7kRED')",
+      }
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+};
+export default config;
