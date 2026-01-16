@@ -112,6 +112,20 @@
   --color-brand-cta: #16a34a;
   --color-brand-danger: #ef4444;
 
+  /* Student Dashboard Colors */
+  --color-student-primary: #137fec;
+  --color-background-light: #f6f7f8;
+  --color-background-dark: #101922;
+
+  /* Instructor Dashboard Colors */
+  --color-instructor-primary: #13ec5b;
+  --color-instructor-primary-hover: #0fb845;
+  --color-instructor-secondary: #facc15;
+  --color-instructor-bg-light: #f6f8f6;
+  --color-instructor-bg-dark: #102216;
+  --color-instructor-surface-dark: #1a2e22;
+  --color-instructor-surface-dark-2: #23482f;
+
   /* Custom fonts */
   --font-display: var(--font-lexend), sans-serif;
   --font-sans: var(--font-lexend), sans-serif;

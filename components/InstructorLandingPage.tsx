@@ -1,8 +1,86 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
 
 export default function InstructorLandingPage() {
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        fullName: "",
+        email: "",
+        phone: "",
+        password: ""
+    });
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSignUp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+
+        const supabase = createClient();
+
+        // 1. Sign Up
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+            options: {
+                data: {
+                    full_name: formData.fullName,
+                    role: 'instructor'
+                }
+            }
+        });
+
+        if (authError) {
+            alert("Erro ao criar conta: " + authError.message);
+            setLoading(false);
+            return;
+        }
+
+        if (authData.user) {
+            // Check if session was created. If not, it could be email verification OR user already exists.
+            // We try to sign in automatically to cover the "User already exists" case or "Auto Confirm" case.
+            if (!authData.session) {
+                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                    email: formData.email,
+                    password: formData.password,
+                });
+
+                if (signInData.session) {
+                    // Success! Proceed as if signup worked immediately.
+                } else {
+                    // Finally, if we still have no session, it's likely Pending Email Verification.
+                    alert("Conta criada! Se você não for redirecionado, por favor verifique seu e-mail para confirmar o cadastro.");
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // 2. Create Instructor Record (if not created by trigger)
+            const { error: profileError } = await supabase
+                .from('instructors')
+                .upsert({
+                    id: authData.user?.id || (await supabase.auth.getUser()).data.user?.id!, // Safe fallback
+                    phone: formData.phone,
+                    status: 'pending_docs',
+                    balance_cents: 0,
+                    current_onboarding_step: 2
+                });
+
+            if (profileError) {
+                console.error("Error creating instructor profile:", profileError);
+            }
+
+            // 3. Redirect to Step 2
+            router.push('/instructor/onboarding/documents');
+        }
+    };
+
     return (
         <div className="bg-[#f6f7f8] dark:bg-[#101922] text-slate-900 dark:text-slate-50 font-display transition-colors duration-200">
             <nav className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md">
@@ -19,9 +97,11 @@ export default function InstructorLandingPage() {
                                 <a className="text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-[#137fec] transition-colors" href="#">Como funciona</a>
                                 <a className="text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-[#137fec] transition-colors" href="#">Ajuda</a>
                             </div>
-                            <button className="flex h-10 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 text-sm font-bold text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                                Login
-                            </button>
+                            <Link href="/instructor/login">
+                                <button className="flex h-10 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 text-sm font-bold text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                    Login
+                                </button>
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -64,14 +144,22 @@ export default function InstructorLandingPage() {
                                     <h3 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">Crie sua conta e comece a faturar hoje</h3>
                                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-bold text-red-500">(Vagas Limitadas por Região)</p>
                                 </div>
-                                <form className="flex flex-col gap-4">
+                                <form className="flex flex-col gap-4" onSubmit={handleSignUp}>
                                     <label className="flex flex-col gap-1.5">
                                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Nome Completo</span>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                                 <span className="material-symbols-outlined text-[20px]">person</span>
                                             </div>
-                                            <input className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white" placeholder="Ex: João da Silva" type="text" />
+                                            <input
+                                                name="fullName"
+                                                value={formData.fullName}
+                                                onChange={handleChange}
+                                                className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                placeholder="Ex: João da Silva"
+                                                type="text"
+                                                required
+                                            />
                                         </div>
                                     </label>
                                     <label className="flex flex-col gap-1.5">
@@ -80,7 +168,15 @@ export default function InstructorLandingPage() {
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                                 <span className="material-symbols-outlined text-[20px]">mail</span>
                                             </div>
-                                            <input className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white" placeholder="seu@email.com" type="email" />
+                                            <input
+                                                name="email"
+                                                value={formData.email}
+                                                onChange={handleChange}
+                                                className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                placeholder="seu@email.com"
+                                                type="email"
+                                                required
+                                            />
                                         </div>
                                     </label>
                                     <label className="flex flex-col gap-1.5">
@@ -89,7 +185,15 @@ export default function InstructorLandingPage() {
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                                 <span className="material-symbols-outlined text-[20px]">call</span>
                                             </div>
-                                            <input className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white" placeholder="(00) 00000-0000" type="tel" />
+                                            <input
+                                                name="phone"
+                                                value={formData.phone}
+                                                onChange={handleChange}
+                                                className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                placeholder="(00) 00000-0000"
+                                                type="tel"
+                                                required
+                                            />
                                         </div>
                                     </label>
                                     <label className="flex flex-col gap-1.5">
@@ -98,7 +202,15 @@ export default function InstructorLandingPage() {
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                                 <span className="material-symbols-outlined text-[20px]">lock</span>
                                             </div>
-                                            <input className="w-full pl-10 pr-12 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white" placeholder="••••••••" type="password" />
+                                            <input
+                                                name="password"
+                                                value={formData.password}
+                                                onChange={handleChange}
+                                                className="w-full pl-10 pr-12 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                placeholder="••••••••"
+                                                type="password"
+                                                required
+                                            />
                                             <button className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer" type="button">
                                                 <span className="material-symbols-outlined text-[20px]">visibility</span>
                                             </button>
@@ -106,7 +218,7 @@ export default function InstructorLandingPage() {
                                     </label>
                                     <label className="flex items-start gap-2 mt-2 cursor-pointer group">
                                         <div className="relative flex items-center">
-                                            <input className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-300 shadow transition-all checked:border-[#137fec] checked:bg-[#137fec] hover:shadow-md dark:border-slate-600 dark:bg-slate-800" type="checkbox" />
+                                            <input className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-300 shadow transition-all checked:border-[#137fec] checked:bg-[#137fec] hover:shadow-md dark:border-slate-600 dark:bg-slate-800" type="checkbox" required />
                                             <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
                                                 <span className="material-symbols-outlined text-[14px] font-bold">check</span>
                                             </span>
@@ -115,9 +227,25 @@ export default function InstructorLandingPage() {
                                             Concordo com os <a className="text-[#137fec] hover:underline" href="#">Termos de Uso</a> e <a className="text-[#137fec] hover:underline" href="#">Política de Privacidade</a>.
                                         </span>
                                     </label>
-                                    <Link href="/instructor/onboarding/documents" className="mt-2 w-full bg-[#137fec] hover:bg-blue-600 text-white font-bold py-3.5 px-4 rounded-lg shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-wide text-sm">
-                                        <span>QUERO MINHA LIBERDADE FINANCEIRA AGORA &gt;&gt;</span>
-                                    </Link>
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="mt-2 w-full bg-[#137fec] hover:bg-blue-600 text-white font-bold py-3.5 px-4 rounded-lg shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-wide text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <span className="animate-spin material-symbols-outlined text-lg">progress_activity</span>
+                                                <span>Criando Conta...</span>
+                                            </>
+                                        ) : (
+                                            <span>QUERO MINHA LIBERDADE FINANCEIRA AGORA &gt;&gt;</span>
+                                        )}
+                                    </button>
+                                    <div className="mt-3 text-center">
+                                        <Link href="/instructor/login" className="text-sm font-medium text-slate-500 hover:text-[#137fec] transition-colors underline decoration-slate-300 hover:decoration-[#137fec]">
+                                            Continuar meu cadastro
+                                        </Link>
+                                    </div>
                                 </form>
                             </div>
                         </div>
