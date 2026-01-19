@@ -24,8 +24,10 @@ export default function InstructorOnboardingProfile() {
         color: "",
     });
     const [vehicleFeatures, setVehicleFeatures] = useState<string[]>([]);
-    const [vehiclePhoto, setVehiclePhoto] = useState<File | null>(null);
-    const [vehiclePhotoPreview, setVehiclePhotoPreview] = useState<string | null>(null);
+
+    // Multiple Vehicle Photos State
+    const [vehiclePhotos, setVehiclePhotos] = useState<File[]>([]);
+    const [vehiclePhotoPreviews, setVehiclePhotoPreviews] = useState<string[]>([]);
 
     useEffect(() => {
         const supabase = createClient();
@@ -39,12 +41,40 @@ export default function InstructorOnboardingProfile() {
     }, [router]);
 
     // Handlers
-    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: any, setPreview: any) => {
+    const handleProfilePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            setFile(file);
-            setPreview(URL.createObjectURL(file));
+            setProfilePhoto(file);
+            setPhotoPreview(URL.createObjectURL(file));
         }
+    };
+
+    // Handle Multiple Vehicle Photos
+    const handleVehiclePhotosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const newFiles = Array.from(e.target.files);
+            const totalFiles = vehiclePhotos.length + newFiles.length;
+
+            if (totalFiles > 5) {
+                alert("Você pode enviar no máximo 5 fotos.");
+                return;
+            }
+
+            setVehiclePhotos([...vehiclePhotos, ...newFiles]);
+
+            const newPreviews = newFiles.map(file => URL.createObjectURL(file));
+            setVehiclePhotoPreviews([...vehiclePhotoPreviews, ...newPreviews]);
+        }
+    };
+
+    const removeVehiclePhoto = (index: number) => {
+        const newPhotos = [...vehiclePhotos];
+        newPhotos.splice(index, 1);
+        setVehiclePhotos(newPhotos);
+
+        const newPreviews = [...vehiclePhotoPreviews];
+        newPreviews.splice(index, 1);
+        setVehiclePhotoPreviews(newPreviews);
     };
 
     const handleSuperpowerToggle = (power: string) => {
@@ -91,16 +121,21 @@ export default function InstructorOnboardingProfile() {
                 profilePhotoUrl = await uploadImage(profilePhoto, 'avatars', path);
             }
 
-            // 2. Upload Vehicle Photo
-            let vehiclePhotoUrl = null;
-            if (vehiclePhoto) {
-                const path = `${user.id}/vehicle_${Date.now()}.jpg`;
-                vehiclePhotoUrl = await uploadImage(vehiclePhoto, 'vehicles', path);
+            // 2. Upload Vehicle Photos (Multiple)
+            const uploadedVehiclePhotoUrls: string[] = [];
+            if (vehiclePhotos.length > 0) {
+                const uploadPromises = vehiclePhotos.map(async (file, index) => {
+                    const path = `${user.id}/vehicle_${Date.now()}_${index}.jpg`;
+                    return uploadImage(file, 'vehicles', path);
+                });
+                const urls = await Promise.all(uploadPromises);
+                uploadedVehiclePhotoUrls.push(...urls);
             }
 
             // 3. Update Instructor Profile (Bio, Superpowers, Avatar)
             const { error: instructorError } = await supabase.from('instructors').update({
                 bio: bio,
+                superpowers: selectedSuperpowers,
                 current_onboarding_step: 4
             }).eq('id', user.id);
 
@@ -112,7 +147,7 @@ export default function InstructorOnboardingProfile() {
             }
 
             // 5. Create/Update Vehicle
-            // Using upsert with onConflict 'plate' to avoid unique constraint errors if re-saving
+            // Using upsert with onConflict 'plate'
             const { error: vehicleError } = await supabase.from('vehicles').upsert({
                 instructor_id: user.id,
                 model: vehicle.model,
@@ -120,7 +155,9 @@ export default function InstructorOnboardingProfile() {
                 year: parseInt(vehicle.year) || 2024,
                 plate: vehicle.plate,
                 color: vehicle.color || 'Unknown',
-                photo_url: vehiclePhotoUrl,
+                features: vehicleFeatures, // Added features
+                photo_url: uploadedVehiclePhotoUrls[0] || null, // Keeping main photo as first one for backward compatibility
+                photo_urls: uploadedVehiclePhotoUrls, // New array column
                 is_active: true
             }, { onConflict: 'plate' });
 
@@ -201,7 +238,7 @@ export default function InstructorOnboardingProfile() {
                                                                 aria-label="Upload de foto de perfil"
                                                                 className="absolute inset-0 cursor-pointer opacity-0"
                                                                 type="file"
-                                                                onChange={(e) => handlePhotoChange(e, setProfilePhoto, setPhotoPreview)}
+                                                                onChange={handleProfilePhotoChange}
                                                             />
                                                             <div className="dark:group-hover:text-[#137fec] flex flex-col items-center text-slate-400 transition-colors group-hover:text-[#137fec]">
                                                                 <span className="material-symbols-outlined text-3xl">add_a_photo</span>
@@ -216,7 +253,7 @@ export default function InstructorOnboardingProfile() {
                                                         accept="image/*"
                                                         className="hidden"
                                                         type="file"
-                                                        onChange={(e) => handlePhotoChange(e, setProfilePhoto, setPhotoPreview)}
+                                                        onChange={handleProfilePhotoChange}
                                                     />
                                                 </label>
                                             </div>
@@ -246,7 +283,7 @@ export default function InstructorOnboardingProfile() {
                                             <h3 className="text-lg font-bold text-[#0d141b] dark:text-white">Seus Superpoderes <span className="text-sm font-normal text-slate-500 ml-1">(Selecione até 3)</span></h3>
                                         </div>
                                         <div className="flex flex-wrap gap-3">
-                                            {['🛡️ Paciência Zero', '🎯 Rei da Baliza', '🧠 Psicólogo', '🛣️ Rodovia', '⚡ Intensivão'].map(power => (
+                                            {['🛡️ Paciente', '🎯 Rei da Baliza', '🧠 Psicólogo', '🛣️ Rodovia', '⚡ Intensivão'].map(power => (
                                                 <div
                                                     key={power}
                                                     onClick={() => handleSuperpowerToggle(power)}
@@ -331,32 +368,44 @@ export default function InstructorOnboardingProfile() {
 
                                         <div className="mt-2 border-t border-slate-200 dark:border-slate-700 pt-6">
                                             <label className="text-[#0d141b] dark:text-white mb-2 block text-sm font-medium">
-                                                Foto do Interior do Veículo <span className="text-red-500">*</span>
+                                                Fotos do Veículo (Interior e Exterior) <span className="text-red-500">*</span>
                                             </label>
-                                            <div className="group flex cursor-pointer justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-6 py-10 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 relative overflow-hidden">
-                                                {vehiclePhotoPreview ? (
-                                                    <img src={vehiclePhotoPreview} className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                                                ) : null}
-                                                <input
-                                                    accept="image/*"
-                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                    type="file"
-                                                    onChange={(e) => handlePhotoChange(e, setVehiclePhoto, setVehiclePhotoPreview)}
-                                                />
-                                                <div className="text-center relative z-0 bg-white/50 dark:bg-black/50 p-4 rounded-lg backdrop-blur-sm">
-                                                    <span className="material-symbols-outlined text-4xl text-slate-400 transition-colors group-hover:text-[#137fec]">
-                                                        add_a_photo
-                                                    </span>
-                                                    <div className="text-slate-600 dark:text-slate-400 mt-4 flex justify-center text-sm leading-6">
-                                                        <span className="focus-within:ring-[#137fec] hover:text-blue-500 relative cursor-pointer rounded-md font-semibold text-[#137fec] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2">
-                                                            <span>Faça o upload da imagem</span>
-                                                        </span>
+
+                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                                                {/* Previews */}
+                                                {vehiclePhotoPreviews.map((preview, index) => (
+                                                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 group">
+                                                        <img src={preview} className="w-full h-full object-cover" />
+                                                        <button
+                                                            onClick={() => removeVehiclePhoto(index)}
+                                                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <span className="material-symbols-outlined text-sm">close</span>
+                                                        </button>
                                                     </div>
-                                                    <p className="text-slate-500 dark:text-slate-500 mt-1 text-xs">
-                                                        Mostre o painel e a limpeza do veículo.
-                                                    </p>
-                                                </div>
+                                                ))}
+
+                                                {/* Add Button */}
+                                                {vehiclePhotos.length < 5 && (
+                                                    <div className="aspect-square">
+                                                        <div className="relative w-full h-full cursor-pointer flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                            <input
+                                                                accept="image/*"
+                                                                multiple
+                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                                type="file"
+                                                                onChange={handleVehiclePhotosChange}
+                                                            />
+                                                            <span className="material-symbols-outlined text-2xl text-slate-400">add_a_photo</span>
+                                                            <span className="text-[10px] text-slate-500 mt-1">Adicionar</span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
+
+                                            <p className="text-slate-500 dark:text-slate-500 text-xs">
+                                                Adicione até 5 fotos mostrando detalhes do interior e exterior do veículo.
+                                            </p>
                                         </div>
                                     </div>
                                 </div>

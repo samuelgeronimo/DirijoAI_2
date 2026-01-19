@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 
-export function DocumentVisualizer() {
+interface DocumentVisualizerProps {
+    documentUrl?: string | null;
+    documentType?: string;
+}
+
+export function DocumentVisualizer({ documentUrl, documentType }: DocumentVisualizerProps) {
     const [zoom, setZoom] = useState(1);
     const [rotation, setRotation] = useState(0);
 
@@ -15,6 +20,7 @@ export function DocumentVisualizer() {
     const handleRotateLeft = () => setRotation((r) => r - 90);
     const handleRotateRight = () => setRotation((r) => r + 90);
 
+
     return (
         <section className="flex-1 relative bg-[#0f151b] flex flex-col items-center justify-center p-6 overflow-hidden group">
             {/* Document Container */}
@@ -26,11 +32,27 @@ export function DocumentVisualizer() {
                         transform: `scale(${zoom}) rotate(${rotation}deg)`,
                     }}
                 >
-                    <img
-                        alt="Digital scan of a brazilian driver license document"
-                        className="object-contain max-h-[80vh] max-w-full"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAghydAMtBph_U_fQ5KmqPEs_OEUQ0zWshwzOi_mkfd0nxTcxYN0YNcW6yEHprBmXprqaJePF1FUX2vJQfx9Y8Pzdu1eHN-n-QvO3TjDIr6qcAh97ZLQy2rxSWNjSfoSiUcbYYOgPhRy_uSTG-XUamdgB6NI_8OnDaCn0IFCxnfCevbR0k_VhEoCzo6-bKSvbw-WNgFb20ghIqTzYixQUgh4Qz_CPjIOj_D-cmWB4IjbqW6JwdyOFrtmmF_uRNpt5NzqzjqFT0XJkTk"
-                    />
+                    {documentUrl ? (
+                        (documentType?.toLowerCase().includes('video') || documentUrl.match(/\.(mp4|webm|mov)$/i)) ? (
+                            <video
+                                src={documentUrl}
+                                controls
+                                className="max-h-[80vh] max-w-full shadow-lg"
+                            >
+                                Seu navegador não suporta a tag de vídeo.
+                            </video>
+                        ) : (
+                            <img
+                                alt={`Document: ${documentType}`}
+                                className="object-contain max-h-[80vh] max-w-full"
+                                src={documentUrl}
+                            />
+                        )
+                    ) : (
+                        <div className="w-96 h-64 flex items-center justify-center bg-gray-800 text-gray-500">
+                            Selecione um documento
+                        </div>
+                    )}
                     {/* Watermark/Overlay for security context */}
                     <div className="absolute inset-0 pointer-events-none opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHRleHQgeD0iMTAiIHk9IjEwIiBmb250LXNpemU9IjIiIGZpbGw9IiNmZmYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIHRyYW5zZm9ybT0icm90YXRlKC00NSAxMCAxMCkiPkRJUklKTy5BSTwvdGV4dD48L3N2Zz4=')]"></div>
                 </div>
@@ -81,15 +103,14 @@ export function DocumentVisualizer() {
             </div>
 
             {/* Doc Info Badge (Overlay) */}
-            <div className="absolute top-6 left-6 bg-[#1e2936]/70 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-lg flex items-center gap-2">
-                <span className="material-symbols-outlined text-gray-400 text-[18px]">
-                    image
-                </span>
-                <span className="text-sm text-gray-200 font-medium">CNH_Frente.jpg</span>
-                <span className="text-xs text-gray-500 border-l border-gray-600 pl-2">
-                    2.4 MB
-                </span>
-            </div>
+            {documentType && (
+                <div className="absolute top-6 left-6 bg-[#1e2936]/70 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                    <span className="material-symbols-outlined text-gray-400 text-[18px]">
+                        image
+                    </span>
+                    <span className="text-sm text-gray-200 font-medium">{documentType}</span>
+                </div>
+            )}
         </section>
     );
 }

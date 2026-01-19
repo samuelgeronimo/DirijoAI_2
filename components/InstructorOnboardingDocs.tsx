@@ -6,11 +6,19 @@ import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
 interface DocumentFile {
-    file: File;
+    file: File | null;
     progress: number;
-    status: 'uploading' | 'completed' | 'error';
-    type: 'cnh' | 'crlv' | 'other';
+    status: 'empty' | 'uploading' | 'completed' | 'error';
+    url?: string;
 }
+
+const DOC_TYPES = [
+    { id: 'cnh_front', label: 'Frente da CNH', description: 'Foto legível da parte da frente', icon: 'id_card' },
+    { id: 'cnh_back', label: 'Verso da CNH', description: 'Foto legível do verso com QR Code', icon: 'id_card' },
+    { id: 'cnh_digital', label: 'CNH Digital (PDF)', description: 'Exportação original do app CNH Digital', icon: 'picture_as_pdf' },
+    { id: 'instructor_credential', label: 'Credencial do Instrutor', description: 'Carteirinha de Instrutor do DETRAN', icon: 'badge' },
+    { id: 'vehicle_crlv', label: 'Documento do Veículo (CRLV)', description: 'Certificado de Registro e Licenciamento', icon: 'directions_car' }
+];
 
 export default function InstructorOnboardingDocs() {
     const router = useRouter();
@@ -25,8 +33,8 @@ export default function InstructorOnboardingDocs() {
     const [cnhCategory, setCnhCategory] = useState("");
     const [cnhState, setCnhState] = useState("");
 
-    // File State
-    const [files, setFiles] = useState<DocumentFile[]>([]);
+    // File State: Keyed by doc id (e.g. 'cnh_front')
+    const [files, setFiles] = useState<Record<string, DocumentFile>>({});
 
     useEffect(() => {
         const supabase = createClient();
@@ -59,37 +67,54 @@ export default function InstructorOnboardingDocs() {
         }
     }, [loadingAuth, user, router]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, docTypeId: string) => {
         if (e.target.files && e.target.files.length > 0) {
-            const newFiles = Array.from(e.target.files).map(file => ({
-                file,
-                progress: 0,
-                status: 'uploading' as const,
-                type: 'other' as const // Logic to determine type could be more complex
+            const file = e.target.files[0];
+
+            setFiles(prev => ({
+                ...prev,
+                [docTypeId]: {
+                    file,
+                    progress: 0,
+                    status: 'uploading'
+                }
             }));
-            setFiles(prev => [...prev, ...newFiles]);
-            
-            // Simulate upload progress for UI demo since real upload happens on "Save"
-            newFiles.forEach((fileObj, index) => {
-                setTimeout(() => {
-                    setFiles(prev => prev.map(f => f.file === fileObj.file ? { ...f, progress: 100, status: 'completed' } : f));
-                }, 1500 + index * 500);
-            });
+
+            // Simulate upload progress
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                setFiles(prev => ({
+                    ...prev,
+                    [docTypeId]: {
+                        ...prev[docTypeId],
+                        progress: Math.min(progress, 100),
+                        status: progress >= 100 ? 'completed' : 'uploading'
+                    }
+                }));
+                if (progress >= 100) clearInterval(interval);
+            }, 200);
         }
     };
 
-    const removeFile = (fileToRemove: File) => {
-        setFiles(prev => prev.filter(f => f.file !== fileToRemove));
+    const removeFile = (docTypeId: string) => {
+        setFiles(prev => {
+            const newFiles = { ...prev };
+            delete newFiles[docTypeId];
+            return newFiles;
+        });
     };
 
-    const uploadFileToSupabase = async (file: File, type: string, userId: string) => {
+    const uploadFileToSupabase = async (fileObj: DocumentFile, docTypeId: string, userId: string) => {
+        if (!fileObj.file) return;
+
         const supabase = createClient();
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${userId}/${type}_${Date.now()}.${fileExt}`;
+        const fileExt = fileObj.file.name.split('.').pop();
+        const fileName = `${userId}/${docTypeId}_${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
             .from('documents')
-            .upload(fileName, file);
+            .upload(fileName, fileObj.file);
 
         if (uploadError) throw uploadError;
 
@@ -101,10 +126,10 @@ export default function InstructorOnboardingDocs() {
             .from('documents')
             .insert({
                 owner_id: userId,
-                type: 'cnh', // Defaulting to CNH type for now as schema requires enum, logic needs refinement for multiple types
+                type: 'cnh', // Keeping 'cnh' for now as generic type, or assume we expanded enum
                 url: publicUrl,
                 status: 'pending',
-                metadata: { original_name: file.name, doc_type: type }
+                metadata: { original_name: fileObj.file.name, doc_type: docTypeId }
             });
 
         if (dbError) throw dbError;
@@ -112,33 +137,39 @@ export default function InstructorOnboardingDocs() {
 
     const handleContinue = async () => {
         const supabase = createClient();
-        if (files.length === 0 || !user) {
-            alert("Por favor, envie pelo menos um documento.");
+
+        // Validate all required files are present
+        const missingFiles = DOC_TYPES.filter(doc => !files[doc.id] || files[doc.id].status !== 'completed');
+
+        if (missingFiles.length > 0 || !user) {
+            alert(`Por favor, envie todos os documentos obrigatórios:\n${missingFiles.map(d => "- " + d.label).join("\n")}`);
             return;
         }
 
         setUploading(true);
         try {
-            // Update Instructor Data with new fields
-            // Note: Schema might need updates if these fields (cpf, cnh, etc.) don't exist yet or are in different tables.
-            // Assuming 'instructors' table has these or we put them in metadata/bio for now/placeholder.
-            // checking schema... 'instructors' has 'cpf'. Others might need to go to 'metadata' or new columns.
-            // For this task, we'll save what we can and mock the rest or put in updates.
-            
             const { error: updateError } = await supabase
                 .from('instructors')
-                .update({ 
+                .update({
                     cpf: cpf,
+                    cnh_number: cnhNumber,
+                    cnh_category: cnhCategory,
+                    cnh_issue_state: cnhState,
+                    detran_registry_number: cfi,
                     current_onboarding_step: 3
                 })
                 .eq('id', user.id);
 
             if (updateError) throw updateError;
 
-            // Upload Files
-            await Promise.all(files.map(f => uploadFileToSupabase(f.file, f.type, user.id)));
+            // Upload all files in parallel
+            await Promise.all(
+                Object.entries(files).map(([docTypeId, fileObj]) =>
+                    uploadFileToSupabase(fileObj, docTypeId, user.id)
+                )
+            );
 
-            router.push("/instructor/onboarding/profile"); 
+            router.push("/instructor/onboarding/profile");
         } catch (error: any) {
             console.error("Upload error:", error);
             alert("Erro ao enviar dados: " + error.message);
@@ -167,7 +198,7 @@ export default function InstructorOnboardingDocs() {
                         <h1 className="text-lg font-bold tracking-tight">Onboarding Instrutor</h1>
                     </div>
                     <div className="flex gap-3">
-                         {/* Header Actions omitted for brevity/focus, reusing existing style or simplification */}
+                        {/* Header Actions */}
                         <div className="ml-2 flex items-center gap-3 pl-3 border-l border-[#e7edf3] dark:border-[#2d3b4a]">
                             <div className="h-8 w-8 rounded-full bg-[#137fec]/20 flex items-center justify-center text-[#137fec] font-bold text-xs overflow-hidden">
                                 {user?.user_metadata?.avatar_url ? (
@@ -200,30 +231,30 @@ export default function InstructorOnboardingDocs() {
 
                 {/* Content Card */}
                 <div className="bg-white dark:bg-[#1e2936] rounded-xl shadow-sm border border-[#e7edf3] dark:border-[#2d3b4a] overflow-hidden">
-                    {/* Page Heading inside Card */}
+                    {/* Page Heading */}
                     <div className="p-8 pb-4 border-b border-[#e7edf3] dark:border-[#2d3b4a]">
                         <div className="flex flex-col gap-2">
                             <h3 className="text-2xl font-bold text-[#0d141b] dark:text-white">Valide sua Permissão de Trabalho</h3>
                             <p className="text-[#4c739a] dark:text-gray-400 text-sm md:text-base max-w-2xl">
-                                Precisamos confirmar seu cadastro junto ao DETRAN para ativar seu perfil de instrutor. Seus dados são mantidos em segurança e validados automaticamente.
+                                Precisamos confirmar seu cadastro com documentação oficial. Envie fotos legíveis de cada documento solicitado abaixo.
                             </p>
                         </div>
                     </div>
 
                     {/* Form Section */}
                     <div className="p-8 flex flex-col gap-8">
-                        {/* Personal Docs Row */}
+                        {/* Personal Docs Row (CPF, CFI) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <label className="flex flex-col gap-2">
                                 <span className="text-sm font-medium text-[#0d141b] dark:text-gray-200">CPF</span>
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400">badge</span>
-                                    <input 
+                                    <input
                                         value={cpf}
                                         onChange={(e) => setCpf(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 rounded-lg border border-[#e7edf3] dark:border-slate-600 bg-[#f6f7f8] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#137fec]/50 focus:border-[#137fec] transition-all font-medium placeholder:font-normal" 
-                                        placeholder="000.000.000-00" 
-                                        type="text" 
+                                        className="w-full pl-11 pr-4 py-3 rounded-lg border border-[#e7edf3] dark:border-slate-600 bg-[#f6f7f8] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#137fec]/50 focus:border-[#137fec] transition-all font-medium placeholder:font-normal"
+                                        placeholder="000.000.000-00"
+                                        type="text"
                                     />
                                 </div>
                             </label>
@@ -234,12 +265,12 @@ export default function InstructorOnboardingDocs() {
                                 </div>
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400">assignment_ind</span>
-                                    <input 
+                                    <input
                                         value={cfi}
                                         onChange={(e) => setCfi(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 rounded-lg border border-[#e7edf3] dark:border-slate-600 bg-[#f6f7f8] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#137fec]/50 focus:border-[#137fec] transition-all font-medium placeholder:font-normal" 
-                                        placeholder="Ex: 123456" 
-                                        type="text" 
+                                        className="w-full pl-11 pr-4 py-3 rounded-lg border border-[#e7edf3] dark:border-slate-600 bg-[#f6f7f8] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#137fec]/50 focus:border-[#137fec] transition-all font-medium placeholder:font-normal"
+                                        placeholder="Ex: 123456"
+                                        type="text"
                                     />
                                 </div>
                                 <p className="text-xs text-[#4c739a] dark:text-gray-500">Número localizado no verso da sua credencial.</p>
@@ -252,19 +283,19 @@ export default function InstructorOnboardingDocs() {
                                 <span className="text-sm font-medium text-[#0d141b] dark:text-gray-200">Número da CNH</span>
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400">directions_car</span>
-                                    <input 
+                                    <input
                                         value={cnhNumber}
                                         onChange={(e) => setCnhNumber(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 rounded-lg border border-[#e7edf3] dark:border-slate-600 bg-[#f6f7f8] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#137fec]/50 focus:border-[#137fec] transition-all font-medium placeholder:font-normal" 
-                                        placeholder="12345678900" 
-                                        type="text" 
+                                        className="w-full pl-11 pr-4 py-3 rounded-lg border border-[#e7edf3] dark:border-slate-600 bg-[#f6f7f8] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#137fec]/50 focus:border-[#137fec] transition-all font-medium placeholder:font-normal"
+                                        placeholder="12345678900"
+                                        type="text"
                                     />
                                 </div>
                             </label>
                             <label className="flex flex-col gap-2 md:col-span-3">
                                 <span className="text-sm font-medium text-[#0d141b] dark:text-gray-200">Categoria</span>
                                 <div className="relative">
-                                    <select 
+                                    <select
                                         value={cnhCategory}
                                         onChange={(e) => setCnhCategory(e.target.value)}
                                         className="w-full pl-4 pr-8 py-3 rounded-lg border border-[#e7edf3] dark:border-slate-600 bg-[#f6f7f8] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#137fec]/50 focus:border-[#137fec] transition-all font-medium appearance-none"
@@ -283,7 +314,7 @@ export default function InstructorOnboardingDocs() {
                             <label className="flex flex-col gap-2 md:col-span-4">
                                 <span className="text-sm font-medium text-[#0d141b] dark:text-gray-200">Estado de Emissão (UF)</span>
                                 <div className="relative">
-                                    <select 
+                                    <select
                                         value={cnhState}
                                         onChange={(e) => setCnhState(e.target.value)}
                                         className="w-full pl-4 pr-8 py-3 rounded-lg border border-[#e7edf3] dark:border-slate-600 bg-[#f6f7f8] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#137fec]/50 focus:border-[#137fec] transition-all font-medium appearance-none"
@@ -300,59 +331,69 @@ export default function InstructorOnboardingDocs() {
                             </label>
                         </div>
 
-                        {/* Upload Section */}
+                        {/* Granular Upload Section */}
                         <div className="flex flex-col gap-4 mt-2">
-                            <h4 className="text-base font-semibold text-[#0d141b] dark:text-white">Comprovantes Digitais</h4>
-                            <div className="relative border-2 border-dashed border-[#137fec]/30 dark:border-[#137fec]/20 bg-[#137fec]/5 dark:bg-[#137fec]/10 rounded-xl p-8 flex flex-col items-center justify-center text-center gap-3 transition-colors hover:bg-[#137fec]/10 dark:hover:bg-[#137fec]/20 hover:border-[#137fec]/50 cursor-pointer group">
-                                <input 
-                                    type="file" 
-                                    multiple 
-                                    onChange={handleFileChange}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                />
-                                <div className="size-14 rounded-full bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                    <span className="material-symbols-outlined text-[#137fec] text-3xl">cloud_upload</span>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[#0d141b] dark:text-white font-medium">Clique para enviar ou arraste e solte</p>
-                                    <p className="text-[#4c739a] dark:text-gray-400 text-sm">Foto da Credencial de Instrutor e Documento do Veículo (CRLV)</p>
-                                </div>
-                                <p className="text-xs text-[#4c739a]/70 dark:text-gray-500 mt-2">PDF, JPG ou PNG até 5MB</p>
-                            </div>
+                            <h4 className="text-base font-semibold text-[#0d141b] dark:text-white">Upload de Documentos Obrigatórios</h4>
 
-                            {/* Uploaded Files List */}
-                            <div className="flex flex-col gap-3">
-                                {files.map((fileObj, index) => (
-                                    <div key={index} className="flex items-center justify-between p-3 rounded-lg border border-[#e7edf3] dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
-                                        <div className="flex items-center gap-3 overflow-hidden w-full">
-                                            <div className="size-10 rounded bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                                                <span className="material-symbols-outlined text-[#137fec] text-xl">description</span>
-                                            </div>
-                                            <div className="flex flex-col min-w-0 flex-1 mr-4">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <p className="text-sm font-medium text-[#0d141b] dark:text-white truncate">{fileObj.file.name}</p>
-                                                    {fileObj.status === 'uploading' && <span className="text-xs font-medium text-[#137fec]">{fileObj.progress}%</span>}
-                                                    {fileObj.status === 'completed' && <span className="text-xs font-medium text-green-500">Concluído</span>}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {DOC_TYPES.map((doc) => {
+                                    const fileObj = files[doc.id];
+                                    const isUploaded = fileObj?.status === 'completed';
+                                    const isUploading = fileObj?.status === 'uploading';
+
+                                    return (
+                                        <div key={doc.id} className={`relative flex flex-col p-4 rounded-xl border-2 transition-all ${isUploaded
+                                            ? 'border-green-500/30 bg-green-50 dark:bg-green-900/10 dark:border-green-500/30'
+                                            : 'border-dashed border-[#e7edf3] dark:border-slate-700 hover:border-[#137fec]/50 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                            }`}>
+                                            {!isUploaded && !isUploading && (
+                                                <input
+                                                    type="file"
+                                                    accept="image/*,application/pdf"
+                                                    onChange={(e) => handleFileChange(e, doc.id)}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                />
+                                            )}
+
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className={`size-10 rounded-lg flex items-center justify-center ${isUploaded ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                                    }`}>
+                                                    <span className="material-symbols-outlined">{isUploaded ? 'check' : doc.icon}</span>
                                                 </div>
-                                                {fileObj.status === 'uploading' && (
-                                                    <div className="h-1.5 w-full bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-[#137fec] rounded-full transition-all duration-300" style={{ width: `${fileObj.progress}%` }}></div>
-                                                    </div>
-                                                )}
-                                                {fileObj.status === 'completed' && (
-                                                     <p className="text-xs text-[#4c739a] dark:text-gray-400">{(fileObj.file.size / 1024 / 1024).toFixed(2)} MB • Enviado com sucesso</p>
+                                                {isUploaded && (
+                                                    <button
+                                                        onClick={() => removeFile(doc.id)}
+                                                        className="text-slate-400 hover:text-red-500 transition-colors z-20"
+                                                        title="Remover arquivo"
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                    </button>
                                                 )}
                                             </div>
+
+                                            <div className="flex flex-col gap-1">
+                                                <h5 className={`font-semibold text-sm ${isUploaded ? 'text-green-700 dark:text-green-400' : 'text-[#0d141b] dark:text-white'}`}>
+                                                    {doc.label}
+                                                </h5>
+                                                {isUploaded ? (
+                                                    <p className="text-xs text-green-600/80 dark:text-green-400/80 truncate">
+                                                        {fileObj.file?.name}
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                        {doc.description}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {isUploading && (
+                                                <div className="mt-3 h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-[#137fec] rounded-full transition-all duration-300" style={{ width: `${fileObj.progress}%` }}></div>
+                                                </div>
+                                            )}
                                         </div>
-                                        <button 
-                                            onClick={() => removeFile(fileObj.file)}
-                                            className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-full hover:bg-red-50 dark:hover:bg-red-900/20" 
-                                            type="button"
-                                        >
-                                            <span className="material-symbols-outlined text-xl">delete</span>
-                                        </button>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -367,10 +408,10 @@ export default function InstructorOnboardingDocs() {
                                     <span className="material-symbols-outlined text-base">lock</span>
                                     <span className="whitespace-nowrap">Dados criptografados de ponta a ponta</span>
                                 </div>
-                                <button 
+                                <button
                                     onClick={handleContinue}
                                     disabled={uploading}
-                                    className="w-full md:w-auto px-8 py-3 rounded-lg bg-[#137fec] hover:bg-[#0f65bd] text-white font-bold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed" 
+                                    className="w-full md:w-auto px-8 py-3 rounded-lg bg-[#137fec] hover:bg-[#0f65bd] text-white font-bold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                                     type="button"
                                 >
                                     {uploading ? (

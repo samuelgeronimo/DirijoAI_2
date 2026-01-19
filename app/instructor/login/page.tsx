@@ -36,7 +36,22 @@ export default function InstructorLoginPage() {
         }
 
         if (authData.user) {
-            // Check onboarding status
+            // 1. Check Profile Role (Admin/Student)
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', authData.user.id)
+                .single();
+
+            if (profileData?.role === 'admin') {
+                router.push("/admin/dashboard");
+                return;
+            } else if (profileData?.role === 'student') {
+                router.push("/student/dashboard"); // Or home based on preference
+                return;
+            }
+
+            // 2. Check Instructor Status (if not admin/student or if logic allows dual roles later)
             // Use maybeSingle() to avoid error if no row exists (though it should)
             const { data: instructorData, error: fetchError } = await supabase
                 .from('instructors')
