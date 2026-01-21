@@ -87,7 +87,7 @@ export default function InstructorOnboardingSuccess() {
             // 2. Save progress to Step 6
             const { error } = await supabase
                 .from('instructors')
-                .update({ current_onboarding_step: 6 })
+                .update({ current_onboarding_step: 7 })
                 .eq('id', user.id);
 
             if (error) throw error;
@@ -119,11 +119,11 @@ export default function InstructorOnboardingSuccess() {
                         {/* Progress Bar */}
                         <div className="flex flex-col gap-3">
                             <div className="flex gap-6 justify-between items-end">
-                                <p className="text-[#0d141b] dark:text-white text-base font-medium leading-normal">Etapa 5 de 6</p>
-                                <span className="text-[#137fec] text-sm font-bold">83% Concluído</span>
+                                <p className="text-[#0d141b] dark:text-white text-base font-medium leading-normal">Etapa 6 de 8</p>
+                                <span className="text-[#137fec] text-sm font-bold">75% Concluído</span>
                             </div>
                             <div className="rounded-full bg-[#cfdbe7] dark:bg-slate-700 h-2 w-full overflow-hidden">
-                                <div className="h-full rounded-full bg-[#137fec]" style={{ width: '83%' }}></div>
+                                <div className="h-full rounded-full bg-[#137fec]" style={{ width: '75%' }}></div>
                             </div>
                         </div>
 

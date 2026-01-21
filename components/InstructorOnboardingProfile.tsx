@@ -136,7 +136,7 @@ export default function InstructorOnboardingProfile() {
             const { error: instructorError } = await supabase.from('instructors').update({
                 bio: bio,
                 superpowers: selectedSuperpowers,
-                current_onboarding_step: 4
+                current_onboarding_step: 5
             }).eq('id', user.id);
 
             if (instructorError) throw instructorError;
@@ -195,16 +195,16 @@ export default function InstructorOnboardingProfile() {
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-end justify-between gap-6">
                                     <p className="text-[#0d141b] dark:text-white text-base font-medium leading-normal">
-                                        Etapa 3 de 4: Perfil e Veículo
+                                        Etapa 4 de 8: Perfil e Veículo
                                     </p>
                                     <p className="text-[#137fec] text-sm font-bold leading-normal">
-                                        75%
+                                        50%
                                     </p>
                                 </div>
                                 <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                                     <div
                                         className="h-full rounded-full bg-[#137fec] transition-all duration-500 ease-out"
-                                        style={{ width: "75%" }}
+                                        style={{ width: "50%" }}
                                     ></div>
                                 </div>
                             </div>

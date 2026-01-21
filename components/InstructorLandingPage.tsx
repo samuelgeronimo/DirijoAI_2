@@ -11,7 +11,8 @@ export default function InstructorLandingPage() {
         fullName: "",
         email: "",
         phone: "",
-        password: ""
+        password: "",
+        service_city: ""
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,6 +68,7 @@ export default function InstructorLandingPage() {
                 .upsert({
                     id: authData.user?.id || (await supabase.auth.getUser()).data.user?.id!, // Safe fallback
                     phone: formData.phone,
+                    service_city: formData.service_city,
                     status: 'pending_docs',
                     balance_cents: 0,
                     current_onboarding_step: 2
@@ -76,8 +78,8 @@ export default function InstructorLandingPage() {
                 console.error("Error creating instructor profile:", profileError);
             }
 
-            // 3. Redirect to Step 2
-            router.push('/instructor/onboarding/documents');
+            // 3. Redirect to Step 2 (Address)
+            router.push('/instructor/onboarding/address');
         }
     };
 
@@ -192,6 +194,23 @@ export default function InstructorLandingPage() {
                                                 className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
                                                 placeholder="(00) 00000-0000"
                                                 type="tel"
+                                                required
+                                            />
+                                        </div>
+                                    </label>
+                                    <label className="flex flex-col gap-1.5">
+                                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cidade de Atuação</span>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                                <span className="material-symbols-outlined text-[20px]">location_on</span>
+                                            </div>
+                                            <input
+                                                name="service_city"
+                                                value={formData.service_city}
+                                                onChange={handleChange}
+                                                className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                placeholder="Ex: São Paulo"
+                                                type="text"
                                                 required
                                             />
                                         </div>

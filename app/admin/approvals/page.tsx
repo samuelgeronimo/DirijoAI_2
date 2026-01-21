@@ -20,6 +20,14 @@ export default async function AdminApprovalsPage() {
             bio,
             superpowers,
             video_url,
+            service_city,
+            city,
+            state,
+            zip_code,
+            street,
+            number,
+            complement,
+            neighborhood,
             vehicles(*),
             profiles: profiles!instructors_id_fkey(
                 full_name,
@@ -29,7 +37,7 @@ export default async function AdminApprovalsPage() {
             )
             `)
         .eq('status', 'pending_docs')
-        .eq('current_onboarding_step', 7)
+        .eq('current_onboarding_step', 8)
         .order('created_at', { ascending: true });
 
     console.log("Admin Approvals Debug:");

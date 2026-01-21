@@ -118,7 +118,7 @@ export default function InstructorOnboardingSchedule() {
             // Also saving the radius if we had a column.
             const { error: updateError } = await supabase.from('instructors').update({
                 status: 'pending_docs', // Set to pending_docs so they go to confirmation page
-                current_onboarding_step: 7
+                current_onboarding_step: 8
             }).eq('id', user.id);
 
             if (updateError) throw updateError;
@@ -151,11 +151,11 @@ export default function InstructorOnboardingSchedule() {
                             {/* Progress */}
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-end justify-between gap-6">
-                                    <p className="text-[#0d141b] dark:text-white text-base font-medium leading-normal">Etapa 4 de 4: Disponibilidade e Preços</p>
-                                    <p className="text-[#137fec] text-sm font-bold leading-normal">100%</p>
+                                    <p className="text-[#0d141b] dark:text-white text-base font-medium leading-normal">Etapa 7 de 8: Disponibilidade e Preços</p>
+                                    <p className="text-[#137fec] text-sm font-bold leading-normal">87.5%</p>
                                 </div>
                                 <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                    <div className="h-full rounded-full bg-[#137fec] transition-all duration-500 ease-out" style={{ width: '100%' }}></div>
+                                    <div className="h-full rounded-full bg-[#137fec] transition-all duration-500 ease-out" style={{ width: '87.5%' }}></div>
                                 </div>
                             </div>
 

@@ -37,6 +37,14 @@ type InstructorWithDetails = {
     cnh_category: string;
     cnh_issue_state: string;
     detran_registry_number: string; // CFI
+    service_city: string | null;
+    city: string | null;
+    state: string | null;
+    neighborhood: string | null;
+    street: string | null;
+    number: string | null;
+    complement: string | null;
+    zip_code: string | null;
     created_at: string;
     vehicles: Vehicle[];
     profiles: {
@@ -235,8 +243,21 @@ export function ApprovalsWorkflow({ instructors: initialInstructors }: Approvals
                                 <Field label="CNH" value={currentInstructor.cnh_number} />
                                 <Field label="Categoria" value={currentInstructor.cnh_category} />
                                 <Field label="Estado Emissor" value={currentInstructor.cnh_issue_state} />
+                                <Field label="Cidade de Atuação" value={currentInstructor.service_city} />
                                 <div className="col-span-2">
                                     <Field label="Data de Cadastro" value={new Date(currentInstructor.created_at).toLocaleString('pt-BR')} />
+                                </div>
+                            </div>
+
+                            <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Endereço</h4>
+                                <div className="grid grid-cols-2 gap-y-4 gap-x-2">
+                                    <Field label="CEP" value={currentInstructor.zip_code} />
+                                    <Field label="Logradouro" value={currentInstructor.street} />
+                                    <Field label="Número" value={currentInstructor.number} />
+                                    <Field label="Complemento" value={currentInstructor.complement} />
+                                    <Field label="Bairro" value={currentInstructor.neighborhood} />
+                                    <Field label="Cidade/UF" value={`${currentInstructor.city || ''} - ${currentInstructor.state || ''}`} />
                                 </div>
                             </div>
 

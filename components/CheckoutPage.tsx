@@ -1,8 +1,85 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
+
+interface Instructor {
+    id: string;
+    rating: number;
+    bio: string;
+    service_city: string;
+    profiles: {
+        full_name: string;
+        avatar_url: string;
+    };
+    instructor_availability: {
+        hourly_rate_cents: number;
+    }[];
+}
 
 export default function CheckoutPage() {
+    const searchParams = useSearchParams();
+    const instructorId = searchParams.get('instructorId');
+    const [instructor, setInstructor] = useState<Instructor | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [basePrice, setBasePrice] = useState(70); // Default fallback
+
+    useEffect(() => {
+        async function fetchInstructor() {
+            if (!instructorId) {
+                setLoading(false);
+                return;
+            }
+
+            const supabase = createClient();
+            const { data, error } = await supabase
+                .from('instructors')
+                .select(`
+                    id,
+                    rating,
+                    bio,
+                    service_city,
+                    profiles!instructors_id_fkey(full_name, avatar_url),
+                    instructor_availability(hourly_rate_cents)
+                `)
+                .eq('id', instructorId)
+                .single();
+
+            if (data) {
+                // @ts-ignore - Supabase type mapping might be slightly off for the join, trusting the query
+                setInstructor(data);
+
+                // Determine base price (take the highest rate found or default)
+                if (data.instructor_availability && data.instructor_availability.length > 0) {
+                    const rates = data.instructor_availability.map((a: any) => a.hourly_rate_cents);
+                    const maxRate = Math.max(...rates);
+                    setBasePrice(maxRate / 100); // Convert cents to Real
+                }
+            } else if (error) {
+                console.error('Error fetching instructor:', error);
+            }
+            setLoading(false);
+        }
+
+        fetchInstructor();
+    }, [instructorId]);
+
+    // Derived prices
+    const price10Class = basePrice * 10 - 100; // Mock discount logic: 10 classes - R$100 discount
+    const price20Class = basePrice * 20 - 300; // Mock discount logic: 20 classes - R$300 discount
+
+    // Formatting helper
+    const fmtMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-[#f8fafc] dark:bg-[#101922]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#137fec]"></div>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-[#f8fafc] dark:bg-[#101922] text-[#0d141b] dark:text-white font-display antialiased relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
             <header className="bg-white dark:bg-[#1a2632] border-b border-[#e7edf3] dark:border-[#2a3845] sticky top-0 z-50">
@@ -41,13 +118,17 @@ export default function CheckoutPage() {
                             <div className="p-5 border-b border-[#e7edf3] dark:border-[#2a3845] bg-slate-50 dark:bg-[#151f29]">
                                 <h3 className="text-base uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-2">Seu Instrutor</h3>
                                 <div className="flex gap-4 items-center">
-                                    <div className="bg-center bg-no-repeat bg-cover rounded-full size-16 shrink-0 border-2 border-white shadow-md" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD6cV2nVZWlavE0jtJiiEEj5tsStRpgLZAw0VGVRvSLypqhm5wRPdFKrynn3aEtDpBNxLLTJ2JsF98uy8WlR4xTZk6uS5ApriFiIZGVU3zzMRGbSkmcCLtBmCZ3G7qdtvO_pZEzYWSRRktQiJbkfgXXC3-ey6_YUeNzXVELQuif1vbEe_l48-gB4YDjGaxLURZ9zrww8aWvd8d1mwB9SRxU7GgtRn9SeiBai8RiLvGoGhKbPcqi22FtMJe28gpVj_1P4n16s78RoS2B")' }}></div>
+                                    <div
+                                        className="bg-center bg-no-repeat bg-cover rounded-full size-16 shrink-0 border-2 border-white shadow-md bg-gray-200"
+                                        style={{ backgroundImage: `url("${instructor?.profiles.avatar_url || 'https://via.placeholder.com/150'}")` }}
+                                    ></div>
                                     <div>
-                                        <p className="text-[#0d141b] dark:text-white text-lg font-bold leading-tight">Carlos Silva</p>
+                                        <p className="text-[#0d141b] dark:text-white text-lg font-bold leading-tight">
+                                            {instructor?.profiles.full_name || 'Instrutor'}
+                                        </p>
                                         <div className="flex items-center gap-1 text-[#4c739a] dark:text-slate-400 text-sm mt-1">
                                             <span className="material-symbols-outlined text-[16px] text-yellow-500 fill-current">star</span>
-                                            <span className="font-bold text-[#0d141b] dark:text-slate-200">4.9</span>
-                                            <span>(128 aulas)</span>
+                                            <span className="font-bold text-[#0d141b] dark:text-slate-200">{instructor?.rating || 5.0}</span>
                                         </div>
                                         <p className="text-[#137fec] font-medium text-xs mt-1">Credenciado Detran-SP</p>
                                     </div>
@@ -60,7 +141,18 @@ export default function CheckoutPage() {
                                     </div>
                                     <div>
                                         <p className="text-[#4c739a] dark:text-slate-400 text-xs uppercase font-bold">Data Reservada</p>
-                                        <p className="text-[#0d141b] dark:text-white font-medium">15 de Outubro, 2023</p>
+                                        <p className="text-[#0d141b] dark:text-white font-medium">
+                                            {searchParams.get('date') && searchParams.get('time')
+                                                ? (() => {
+                                                    const dateParts = searchParams.get('date')!.split('-');
+                                                    const year = dateParts[0];
+                                                    const month = dateParts[1];
+                                                    const day = dateParts[2];
+                                                    // Display as DD/MM/YYYY locally
+                                                    return `${day}/${month}/${year} às ${searchParams.get('time')}`;
+                                                })()
+                                                : 'A combinar'}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex gap-3">
@@ -68,8 +160,8 @@ export default function CheckoutPage() {
                                         <span className="material-symbols-outlined text-[#137fec] text-[20px]">location_on</span>
                                     </div>
                                     <div>
-                                        <p className="text-[#4c739a] dark:text-slate-400 text-xs uppercase font-bold">Ponto de Encontro</p>
-                                        <p className="text-[#0d141b] dark:text-white font-medium">Estação Tatuapé - Saída B</p>
+                                        <p className="text-[#4c739a] dark:text-slate-400 text-xs uppercase font-bold">Região de Atendimento</p>
+                                        <p className="text-[#0d141b] dark:text-white font-medium">{instructor?.service_city || 'São Paulo'}</p>
                                     </div>
                                 </div>
                                 <div className="w-full h-24 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center overflow-hidden relative border border-slate-200 dark:border-slate-700" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD8LimDaTTX-xOBPmAGJmGKHuhTTxVYj_xckPezkro2pUOnFiaCooAufKJdgku_oEP_38TM1piWbbYeY85r62_tT6U_oBoSV-cwihZ-GJsafyBPVqKZv_W74MITUFXz75YbbZRG1TVC8OtiYQE7riNcKO62vcQDq2bqrhVv1D9DeOS5WV9xYpCa-DDH30Ed-3JrxU6jnPluAKgSY7ZEGpkjsTLai4PHNjJuAUIKFLfiK_vcNtWdnAEVjG2-GADgW3fYtNBGUK5NCIHH")' }}>
@@ -115,11 +207,11 @@ export default function CheckoutPage() {
                                         <div className="flex flex-col h-full justify-between">
                                             <div>
                                                 <div className="text-slate-500 text-sm font-bold uppercase tracking-wider mb-1">Básico</div>
-                                                <div className="text-lg font-bold text-slate-900 dark:text-white mb-2">1 Aula Avulsa</div>
-                                                <p className="text-xs text-slate-500 mb-4">Ideal para teste ou avaliação.</p>
+                                                <div className="text-lg font-bold text-slate-900 dark:text-white mb-2">3 Aulas</div>
+                                                <p className="text-xs text-slate-500 mb-4">Pacote mínimo para iníciar.</p>
                                             </div>
                                             <div className="mt-2">
-                                                <span className="text-2xl font-black text-slate-900 dark:text-white">R$ 70</span>
+                                                <span className="text-2xl font-black text-slate-900 dark:text-white">{fmtMoney(basePrice * 3)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -142,9 +234,9 @@ export default function CheckoutPage() {
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Perfeito para quem quer evoluir rápido.</p>
                                             </div>
                                             <div className="mt-2">
-                                                <div className="text-sm text-slate-400 line-through font-medium">R$ 700</div>
-                                                <span className="text-3xl font-black text-[#137fec]">R$ 600</span>
-                                                <span className="text-xs text-slate-500 block">R$ 60/aula</span>
+                                                <div className="text-sm text-slate-400 line-through font-medium">{fmtMoney(basePrice * 10)}</div>
+                                                <span className="text-3xl font-black text-[#137fec]">{fmtMoney(price10Class)}</span>
+                                                <span className="text-xs text-slate-500 block">{fmtMoney(price10Class / 10)}/aula</span>
                                             </div>
                                         </div>
                                     </div>
@@ -159,8 +251,8 @@ export default function CheckoutPage() {
                                                 <p className="text-xs text-slate-500 mb-4">Do zero à habilitação.</p>
                                             </div>
                                             <div className="mt-2">
-                                                <span className="text-2xl font-black text-slate-900 dark:text-white">R$ 1.100</span>
-                                                <span className="text-xs text-slate-500 block">R$ 55/aula</span>
+                                                <span className="text-2xl font-black text-slate-900 dark:text-white">{fmtMoney(price20Class)}</span>
+                                                <span className="text-xs text-slate-500 block">{fmtMoney(price20Class / 20)}/aula</span>
                                             </div>
                                         </div>
                                     </div>

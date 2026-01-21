@@ -1,272 +1,476 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/client';
 import SearchEmptyState from './SearchEmptyState';
 
-const MOCK_INSTRUCTORS = [
-    {
-        id: 1,
-        name: "João S.",
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBzEOdcKjoKtJNzWOZEvU8cnG7-kFjyRI2ojYlc03_D3AW5_NFuamCkuPcwZ_sw59XoerEem9JbxTdMh2dwTvSceGsSRdU4y4WbH60nzYn0tf4yqnCrsUckoyVYSqjIVG_vTGPXBEje0DnOqQqDrWoIi41VMKEg_JWutZLcFsJ1R9crO1SRIxkA0TZXkaaCvZerpM1vJXtJqqTXGf8KHBENy9zgEfgl8edzXX-FOzXbaFpGRq2sxR9kw1klnWGy0RzQQHYEtGAbiYR2",
-        rating: 4.9,
-        badges: [{ text: "🎯 Rei da Baliza", color: "blue" }],
-        achievements: "🏆 42 Aprovados este ano",
-        car: "VW Gol G8",
-        carDetails: "Ar Condicionado • Direção Elétrica",
-        serviceBadge: "✅ Busca em Casa",
-        priceOld: 100,
-        priceNew: 85,
-        availability: "Restam 3 horários",
-        top: true
-    },
-    {
-        id: 2,
-        name: "Maria Eduarda",
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBp-0QxD7Q9zS5XC_8MLfeimVJ6MjFwPWOxYqyTO6-seNL69iu736a2sm-Ahq-DX1oBAOTjUl26lM67TNvtVZIXqlauCD_fmJynD8p7SWhIA-YpQbE9tP1WXDWpKyJllLHkjcDVNaeCXtTxiPOCeJnW3zhGsQfi0LtxC5Bh4l_8u4YJt92C-TInbqWFSMXSq756XPioTS-4hzy7wJneECbKHjBe2pat46oSbP_Be8HwtSxg1fTZR05xJ7K9otXGfKxOe-xzuWQOCDTB",
-        rating: 5.0,
-        badges: [{ text: "🧠 Especialista em Medo", color: "purple" }],
-        achievements: "🏆 98% de Aprovação",
-        car: "Hyundai HB20",
-        carDetails: "Automático • Direção Elétrica",
-        serviceBadge: "❄️ Ar Digital",
-        priceOld: 110,
-        priceNew: 95,
-        availability: "Agenda quase cheia",
-        top: false
-    },
-    {
-        id: 3,
-        name: "Ricardo O.",
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBuAHodFg2I-rZIx3nFSdsZVGVSlKpOY_xjd_XM6PD5_jpI8d4gD2Vie9LF29PArLJ0VGa75WFGAqYiX4FBA7euCL6svIOSdfSG77iNJjjlOTEYexJo3xFHCitQRILM-WiKlkoO58q0bNM-jPOlI-P9KMfX1t-8CsABlc8gP7G3j5qWF_QsURIQuBExlUQzf0U264kZNal275zBRV2cGPqb34EwQXNIZJD4Kmtghex7CsPLsu3MWiPd7iWeS8kP-Kh09PVjJtgfpI3w",
-        rating: 4.7,
-        badges: [{ text: "🚛 Mestre dos Pesados", color: "amber" }],
-        achievements: "🏆 150+ Alunos formados",
-        car: "Volvo FH",
-        carDetails: "Automático • Categoria E",
-        serviceBadge: "🛡️ Seguro Incluso",
-        priceOld: 90,
-        priceNew: 75,
-        availability: "Última vaga hoje",
-        top: false
-    }
-];
+// Helper to check time intersection
+const hasTimeSlot = (availability: any[], period: 'morning' | 'afternoon' | 'night') => {
+    if (!availability || availability.length === 0) return false;
+
+    // Morning: 06-12, Afternoon: 12-18, Night: 18-23
+    const periodRanges = {
+        morning: { start: 6, end: 12 },
+        afternoon: { start: 12, end: 18 },
+        night: { start: 18, end: 23 }
+    };
+
+    const range = periodRanges[period];
+
+    return availability.some(slot => {
+        const start = parseInt(slot.start_time.split(':')[0]);
+        const end = parseInt(slot.end_time.split(':')[0]);
+        // Check overlap
+        return (start < range.end && end > range.start);
+    });
+};
 
 export default function SearchResults() {
     const searchParams = useSearchParams();
-    const query = searchParams.get('q') || "São Paulo, SP";
+    const query = searchParams.get('q') || "";
 
-    // Simple mock logic: If query includes "são paulo" (case insensitive) or "sp", show data. Otherwise empty.
-    const hasResults = query.toLowerCase().includes("são paulo") || query.toLowerCase().includes("sp");
+    const [instructors, setInstructors] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Filters State
+    const [fearOfDriving, setFearOfDriving] = useState(false);
+    const [selectedTime, setSelectedTime] = useState<'all' | 'morning' | 'afternoon' | 'night'>('all');
+    const [priceRange, setPriceRange] = useState<[number, number]>([0, 200]);
+    const [minRating, setMinRating] = useState(0);
+
+    // Fetch Data
+    useEffect(() => {
+        async function fetchInstructors() {
+            setLoading(true);
+            const supabase = createClient();
+
+            let queryBuilder = supabase
+                .from('instructors')
+                .select(`
+                    id,
+                    rating,
+                    bio,
+                    city,
+                    service_city,
+                    state,
+                    video_url,
+                    superpowers,
+                    profiles!instructors_id_fkey(full_name, avatar_url),
+                    vehicles(model, brand, year, color, features, photo_urls, is_active),
+                    instructor_availability(hourly_rate_cents, day_of_week, start_time, end_time)
+                `);
+
+            if (query && query.length > 2) {
+                queryBuilder = queryBuilder.ilike('service_city', `%${query}%`);
+            }
+
+            const { data, error } = await queryBuilder;
+
+            if (error) {
+                console.error('Error fetching instructors:', error);
+            } else {
+                setInstructors(data || []);
+            }
+            setLoading(false);
+        }
+
+        fetchInstructors();
+    }, [query]);
+
+    // Filtering and Sorting
+    const sortedAndFilteredInstructors = useMemo(() => {
+        let result = [...instructors];
+
+        // 1. Filters
+        if (fearOfDriving) {
+            result = result.filter(inst =>
+                inst.superpowers?.some((p: string) =>
+                    p.toLowerCase().includes('psicologia') ||
+                    p.toLowerCase().includes('psicólogo')
+                )
+            );
+        }
+
+        if (selectedTime !== 'all') {
+            result = result.filter(inst => hasTimeSlot(inst.instructor_availability, selectedTime));
+        }
+
+        if (minRating > 0) {
+            result = result.filter(inst => (inst.rating || 0) >= minRating);
+        }
+
+        result = result.filter(inst => {
+            const price = (inst.instructor_availability?.[0]?.hourly_rate_cents || 0) / 100;
+            if (price === 0) return true; // Show if price not set or filter out? Assuming show.
+            return price >= priceRange[0] && price <= priceRange[1];
+        });
+
+        // 2. Sorting
+        // Formula: score = (HasVideo ? 20 : 0) + (HasAvailability ? 10 : 0) + Rating
+        result.sort((a, b) => {
+            const getScore = (inst: any) => {
+                let score = 0;
+                // Has Video (+20)
+                if (inst.video_url) score += 20;
+
+                // Has Availability (+10) - Check if array not empty
+                if (inst.instructor_availability?.length > 0) score += 10;
+
+                // Rating (+Rating)
+                score += (inst.rating || 0);
+
+                return score;
+            };
+
+            return getScore(b) - getScore(a); // Descending
+        });
+
+        return result;
+    }, [instructors, fearOfDriving, selectedTime, minRating, priceRange]);
+
+    const hasResults = sortedAndFilteredInstructors.length > 0;
 
     return (
-        <div className="bg-[#f6f7f8] dark:bg-[#101922] text-[#0d141b] dark:text-slate-100 min-h-screen flex flex-col overflow-hidden font-sans">
-            <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e7edf3] dark:border-slate-800 bg-white dark:bg-[#101922] px-10 py-3 z-50">
-                <div className="flex items-center gap-8">
-                    <div className="flex items-center gap-4 text-[#137fec]">
-                        <div className="size-8">
-                            <span className="material-symbols-outlined text-3xl">local_taxi</span>
-                        </div>
-                        <h2 className="text-[#0d141b] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Dirijo.ai</h2>
-                    </div>
-                    <label className="flex flex-col min-w-40 !h-10 max-w-64">
-                        <div className="flex w-full flex-1 items-stretch rounded-lg h-full">
-                            <div className="text-[#4c739a] flex border-none bg-[#e7edf3] dark:bg-slate-800 items-center justify-center pl-4 rounded-l-lg">
+        <div className="bg-[#f6f7f8] dark:bg-[#101922] text-[#0d141b] dark:text-slate-100 min-h-screen flex flex-col font-sans">
+            {/* Header */}
+            <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-[#101922]/95 backdrop-blur-md border-b border-[#e7edf3] dark:border-slate-800 shadow-sm">
+                <div className="max-w-[1200px] mx-auto flex items-center justify-between px-6 py-3">
+                    <div className="flex items-center gap-8">
+                        <Link href="/" className="flex items-center gap-2 group">
+                            <div className="bg-[#137fec] text-white p-1 rounded-lg group-hover:bg-[#137fec]/90 transition-colors">
+                                <span className="material-symbols-outlined text-2xl">local_taxi</span>
+                            </div>
+                            <h2 className="text-[#0d141b] dark:text-white text-2xl font-black tracking-tighter uppercase italic">
+                                Dirijo<span className="text-[#137fec]">.ai</span>
+                            </h2>
+                        </Link>
+
+                        {/* Search Input in Header */}
+                        <div className="hidden md:flex relative w-96">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                 <span className="material-symbols-outlined">search</span>
                             </div>
                             <input
-                                className="form-input flex w-full min-w-0 flex-1 border-none bg-[#e7edf3] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:ring-0 h-full placeholder:text-[#4c739a] px-4 rounded-r-lg pl-2 text-base font-normal"
-                                placeholder="São Paulo, SP"
+                                type="text"
+                                className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-[#137fec] text-sm text-slate-900 dark:text-white placeholder-slate-500"
+                                placeholder="Buscar por cidade..."
                                 defaultValue={query}
                             />
                         </div>
-                    </label>
-                </div>
-                <div className="flex flex-1 justify-end gap-8">
-                    <div className="flex items-center gap-9">
-                        <a className="text-[#0d141b] dark:text-slate-300 text-sm font-medium hover:text-[#137fec] transition-colors" href="/">Início</a>
-                        <a className="text-[#0d141b] dark:text-slate-300 text-sm font-medium hover:text-[#137fec] transition-colors" href="#">Instrutores</a>
-                        <a className="text-[#0d141b] dark:text-slate-300 text-sm font-medium hover:text-[#137fec] transition-colors" href="#">Meus Agendamentos</a>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <button className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-[#137fec] text-white text-sm font-bold tracking-[0.015em] hover:bg-[#137fec]/90 transition-all">
-                            Entrar
-                        </button>
-                        <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-[#137fec]/20" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDmbZ2uokfvcWM_18WLogNn2-nJVSGeOAKuoeSw_CoIqXs7cnFCOdH0BGeO0J7P-kpWJ7J1pMveCs6jZ0cFI0t4Yy62WzWn6BHGD_IpXXc6U1Uca4YOoGGWaxFnJfdVl6Xmvi00ScwTFPvPdKOXyOc6RiV2BNBxwc4OphDyWNnFRYaWzaeL5KBZR0krHyPje_XYGJpNO8gQKlslFM24Ue7KgFFlfxmnOQ379dxWN9gTNiDNGRatCJmlB62-7Aq-LpjI5B7puSNkAzR_")' }}></div>
+
+                    <div className="flex items-center gap-6">
+                        <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-slate-600 dark:text-slate-400">
+                            <Link href="/" className="hover:text-[#137fec] transition-colors">Início</Link>
+                            <Link href="#" className="hover:text-[#137fec] transition-colors">Como Funciona</Link>
+                        </nav>
+                        <div className="flex items-center gap-3">
+                            <Link href="/instructor" className="hidden md:block text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-[#137fec] transition-colors">
+                                Sou Instrutor
+                            </Link>
+                            <button className="bg-[#137fec] hover:bg-[#137fec]/90 text-white text-sm font-bold px-5 py-2 rounded-full shadow-lg shadow-blue-500/20 transition-all">
+                                Entrar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>
 
-            {!hasResults ? <SearchEmptyState city={query} /> : (
-                <>
-                    <div className="bg-white dark:bg-[#101922] border-b border-[#e7edf3] dark:border-slate-800 px-6 py-3 flex gap-3 flex-wrap items-center shadow-sm z-40">
-                        <button className="flex h-9 items-center justify-center gap-x-2 rounded-lg bg-[#e7edf3] dark:bg-slate-800 px-4 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                            <p className="text-[#0d141b] dark:text-slate-200 text-sm font-medium">Preço</p>
-                            <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
-                        </button>
-                        <button className="flex h-9 items-center justify-center gap-x-2 rounded-lg bg-[#137fec]/10 border border-[#137fec]/20 px-4">
-                            <p className="text-[#137fec] text-sm font-semibold">Categoria: B</p>
-                            <span className="material-symbols-outlined text-sm text-[#137fec]">close</span>
-                        </button>
-                        <button className="flex h-9 items-center justify-center gap-x-2 rounded-lg bg-[#e7edf3] dark:bg-slate-800 px-4 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                            <p className="text-[#0d141b] dark:text-slate-200 text-sm font-medium">Avaliação</p>
-                            <span className="material-symbols-outlined text-sm">star</span>
-                        </button>
-                        <button className="flex h-9 items-center justify-center gap-x-2 rounded-lg bg-[#e7edf3] dark:bg-slate-800 px-4 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                            <p className="text-[#0d141b] dark:text-slate-200 text-sm font-medium">Horários</p>
-                            <span className="material-symbols-outlined text-sm">schedule</span>
-                        </button>
-                        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
-                        <button className="text-[#137fec] text-sm font-medium hover:underline">Limpar filtros</button>
-                    </div>
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col">
+                {!hasResults && !loading ? (
+                    <SearchEmptyState city={query} />
+                ) : (
+                    <div className="flex flex-col lg:flex-row gap-8 w-full max-w-[1200px] mx-auto px-4 py-8 flex-1">
 
-                    <main className="flex flex-1 overflow-hidden">
-                        <section className="w-full lg:w-[480px] xl:w-[560px] flex flex-col bg-[#f6f7f8] dark:bg-[#101922] border-r border-[#e7edf3] dark:border-slate-800 overflow-y-auto">
-                            <div className="px-6 pt-6 pb-2">
-                                <h3 className="text-[#0d141b] dark:text-white tracking-tight text-xl font-bold leading-tight">24 instrutores credenciados em {query}</h3>
-                                <p className="text-[#4c739a] text-sm mt-1">Profissionais com alta taxa de aprovação selecionados para você.</p>
-                            </div>
-                            <div className="p-4 space-y-4">
-                                {MOCK_INSTRUCTORS.map(instructor => (
-                                    <div key={instructor.id} className="group flex flex-col rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 hover:border-[#137fec]/50 hover:shadow-md transition-all cursor-pointer overflow-hidden">
-                                        <div className="p-4 flex gap-4 items-start pb-2">
-                                            <div className="relative shrink-0">
-                                                <div className={`w-16 h-16 rounded-full p-0.5 border-2 ${instructor.top ? 'border-yellow-400' : 'border-[#137fec]/30'}`} title={instructor.top ? "Top Instrutor" : "Instrutor Verificado"}>
-                                                    <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url("${instructor.image}")` }}></div>
-                                                </div>
-                                                {instructor.top && (
-                                                    <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">TOP</div>
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight truncate">{instructor.name}</h4>
-                                                        {instructor.badges.map((badge, idx) => (
-                                                            <span key={idx} className={`inline-flex items-center gap-1 bg-${badge.color}-50 dark:bg-${badge.color}-900/30 text-${badge.color}-700 dark:text-${badge.color}-300 text-xs font-semibold px-2 py-0.5 rounded mt-1`}>
-                                                                {badge.text}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                    <div className="flex flex-col items-end shrink-0">
-                                                        <div className="flex items-center gap-1 text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                                                            <span className="material-symbols-outlined text-sm text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                                                            {instructor.rating.toFixed(1)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="mt-2">
-                                                    <span className="flex items-center w-fit gap-1 text-green-700 dark:text-green-400 font-bold text-sm bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border border-green-100 dark:border-green-900/30">
-                                                        <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>emoji_events</span>
-                                                        {instructor.achievements}
-                                                    </span>
-                                                </div>
-                                            </div>
+                        {/* Filters Sidebar */}
+                        <aside className="w-full lg:w-64 shrink-0 flex flex-col gap-6">
+                            <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm sticky top-24">
+                                <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[#137fec]">tune</span>
+                                    Filtros
+                                </h3>
+
+                                {/* Fear Filter */}
+                                <div className="mb-6">
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                className="peer sr-only"
+                                                checked={fearOfDriving}
+                                                onChange={(e) => setFearOfDriving(e.target.checked)}
+                                            />
+                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#137fec]"></div>
                                         </div>
-                                        <div className="px-4 pb-3">
-                                            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 flex items-center gap-3">
-                                                <div className="bg-white dark:bg-slate-700 p-2 rounded shadow-sm text-slate-500">
-                                                    <span className="material-symbols-outlined">directions_car</span>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">{instructor.car}</p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{instructor.carDetails}</p>
-                                                </div>
-                                                <div className="text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded-full whitespace-nowrap border border-green-200 dark:border-green-900/50">
-                                                    {instructor.serviceBadge}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs text-slate-400 line-through">R$ {instructor.priceOld}</span>
-                                                <div className="flex items-baseline gap-1">
-                                                    <span className="text-base font-bold text-slate-900 dark:text-white">R$ {instructor.priceNew}</span>
-                                                    <span className="text-xs font-normal text-slate-500">/aula</span>
-                                                </div>
-                                                <span className="text-xs font-bold text-orange-600 flex items-center gap-1 mt-0.5">
-                                                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
-                                                    {instructor.availability}
+                                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-[#137fec] transition-colors leading-tight">
+                                            Tenho Medo de Dirigir
+                                        </span>
+                                    </label>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Mostra apenas instrutores com especialização em psicologia.
+                                    </p>
+                                </div>
+
+                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-4"></div>
+
+                                {/* Time Filter */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Horário</h4>
+                                    <div className="flex flex-col gap-2">
+                                        {[
+                                            { id: 'all', label: 'Todos' },
+                                            { id: 'morning', label: 'Manhã (06h - 12h)' },
+                                            { id: 'afternoon', label: 'Tarde (12h - 18h)' },
+                                            { id: 'night', label: 'Noite (18h - 23h)' }
+                                        ].map((time) => (
+                                            <label key={time.id} className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="timeFilter"
+                                                    checked={selectedTime === time.id}
+                                                    onChange={() => setSelectedTime(time.id as any)}
+                                                    className="text-[#137fec] focus:ring-[#137fec]"
+                                                />
+                                                <span className="text-sm text-slate-600 dark:text-slate-300">{time.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-4"></div>
+
+                                {/* Rating Filter */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Avaliação Mínima</h4>
+                                    <div className="flex flex-col gap-2">
+                                        {[0, 4, 4.5, 4.8].map((rating) => (
+                                            <label key={rating} className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="ratingFilter"
+                                                    checked={minRating === rating}
+                                                    onChange={() => setMinRating(rating)}
+                                                    className="text-[#137fec] focus:ring-[#137fec]"
+                                                />
+                                                <span className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                                                    {rating === 0 ? "Qualquer nota" : <>{rating}+ <span className="material-symbols-outlined text-amber-400 text-sm">star</span></>}
                                                 </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-4"></div>
+
+                                {/* Price Filter (Simple Range) */}
+                                <div className="mb-2">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Preço / Hora</h4>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-2 top-1.5 text-xs text-slate-400">R$</span>
+                                            <input
+                                                type="number"
+                                                value={priceRange[0]}
+                                                onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                                                className="w-full pl-6 pr-2 py-1 text-sm border rounded dark:bg-slate-800 dark:border-slate-700"
+                                            />
+                                        </div>
+                                        <span className="text-slate-400">-</span>
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-2 top-1.5 text-xs text-slate-400">R$</span>
+                                            <input
+                                                type="number"
+                                                value={priceRange[1]}
+                                                onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                                                className="w-full pl-6 pr-2 py-1 text-sm border rounded dark:bg-slate-800 dark:border-slate-700"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between text-xs text-slate-400">
+                                        <span>Mín</span>
+                                        <span>Máx</span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </aside>
+
+                        {/* Results Area */}
+                        <div className="flex-1">
+                            <div className="mb-6 flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                    {sortedAndFilteredInstructors.length} instrutores encontrados
+                                    {query && <span className="text-slate-500 font-normal text-base">para "{query}"</span>}
+                                </h2>
+
+                                {/* Active Filters Summary */}
+                                {(fearOfDriving || selectedTime !== 'all' || minRating > 0) && (
+                                    <button
+                                        onClick={() => {
+                                            setFearOfDriving(false);
+                                            setSelectedTime('all');
+                                            setMinRating(0);
+                                            setPriceRange([0, 200]);
+                                        }}
+                                        className="text-sm text-[#137fec] font-medium hover:underline bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full"
+                                    >
+                                        Limpar Filtros
+                                    </button>
+                                )}
+                            </div>
+
+                            {loading ? (
+                                <div className="space-y-4">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="animate-pulse flex flex-col md:flex-row gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                                            <div className="h-32 w-32 md:w-48 bg-slate-200 dark:bg-slate-800 rounded-lg shrink-0"></div>
+                                            <div className="flex-1 space-y-3 w-full">
+                                                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3"></div>
+                                                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/2"></div>
+                                                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
                                             </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : !hasResults ? (
+                                <SearchEmptyState city={query} />
+                            ) : (
+                                <div className="space-y-4">
+                                    {sortedAndFilteredInstructors.map((instructor) => {
+                                        const priceCents = instructor.instructor_availability?.[0]?.hourly_rate_cents || 0;
+                                        const priceFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(priceCents / 100);
+                                        const vehicle = instructor.vehicles?.[0]; // Assuming first vehicle
+
+                                        return (
                                             <Link
                                                 href={`/instructor/${instructor.id}`}
-                                                className="border border-[#137fec] text-[#137fec] hover:bg-[#137fec] hover:text-white dark:hover:text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors shadow-sm flex items-center justify-center"
+                                                key={instructor.id}
+                                                className="group flex flex-col md:flex-row gap-5 p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-[#137fec] hover:shadow-lg hover:shadow-blue-900/10 transition-all duration-300"
                                             >
-                                                Ver Agenda
+                                                {/* Thumbnail / Video Indicator */}
+                                                <div className="relative w-full md:w-48 aspect-video md:aspect-[4/3] shrink-0 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800">
+                                                    {/* Prefer Video thumbnail if available (mocked) or Profile/Car */}
+                                                    {vehicle?.photo_urls?.[0] ? (
+                                                        <img src={vehicle.photo_urls[0]} alt="Veículo" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-800">
+                                                            <span className="material-symbols-outlined text-4xl">directions_car</span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Video Tag Overlay */}
+                                                    {instructor.video_url && (
+                                                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 z-10">
+                                                            <span className="material-symbols-outlined text-xs fill-current">play_circle</span>
+                                                            VÍDEO
+                                                        </div>
+                                                    )}
+
+                                                    {/* Avatar Overlay (Bottom Left) */}
+                                                    <div className="absolute bottom-2 left-2 size-10 rounded-full border-2 border-white dark:border-slate-800 bg-slate-200 overflow-hidden shadow-md z-10">
+                                                        {instructor.profiles?.avatar_url ? (
+                                                            <img src={instructor.profiles.avatar_url} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-slate-500 font-bold text-xs">
+                                                                {instructor.profiles?.full_name?.charAt(0)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Content */}
+                                                <div className="flex-1 flex flex-col justify-between">
+                                                    <div>
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-[#137fec] transition-colors">
+                                                                    {instructor.profiles.full_name}
+                                                                </h3>
+                                                                <div className="flex items-center gap-1 text-amber-500 font-bold text-sm mt-0.5">
+                                                                    <span>{instructor.rating || "5.0"}</span>
+                                                                    <span className="material-symbols-outlined text-[16px] fill-current">star</span>
+                                                                    <span className="text-slate-400 font-normal ml-1 text-xs">({Math.floor(Math.random() * 50) + 10} avaliações)</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">Hora/Aula</div>
+                                                                <div className="text-xl font-black text-slate-900 dark:text-white text-[#137fec]">
+                                                                    {priceFormatted}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                            {instructor.superpowers?.slice(0, 3).map((power: string, idx: number) => (
+                                                                <span key={idx} className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-semibold border border-blue-100 dark:border-blue-900/50">
+                                                                    {power}
+                                                                </span>
+                                                            ))}
+                                                            {instructor.superpowers?.length > 3 && (
+                                                                <span className="px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-500 text-xs border border-slate-100 dark:border-slate-700">
+                                                                    +{instructor.superpowers.length - 3}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {vehicle && (
+                                                            <div className="mt-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg w-fit">
+                                                                <span className="material-symbols-outlined text-[18px]">directions_car</span>
+                                                                <span className="font-medium">{vehicle.model} {vehicle.year}</span>
+                                                                <span className="text-slate-400">•</span>
+                                                                <span>{vehicle.color}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                                        <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="material-symbols-outlined text-[16px] text-green-500">verified</span>
+                                                                <span>Verificado</span>
+                                                            </div>
+                                                            {instructor.video_url && (
+                                                                <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                                                                    <span className="material-symbols-outlined text-[16px]">videocam</span>
+                                                                    <span>Vídeo Introdução</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <span className="inline-flex items-center gap-1 text-sm font-bold text-[#137fec] group-hover:underline">
+                                                            Ver Agenda
+                                                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </Link>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                <div className="py-4 flex justify-center">
-                                    <button className="text-[#137fec] font-bold text-sm hover:underline">Ver mais instrutores</button>
+                                        );
+                                    })}
                                 </div>
-                            </div>
-                        </section>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
 
-                        <section className="hidden lg:block flex-1 relative bg-slate-200 dark:bg-slate-800">
-                            <div className="absolute inset-0 w-full h-full bg-cover bg-center" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCs6JMi9C7CcoeaXcQ_FCN_S_-K1gDJuFTaHihCqE8lkp1FkR_xZq7-TePHUT3ntqFRrfJVb1NKmaLf8Vw9Sp4HkHtI5XU4uZSdzPcGT67ficTOxuH52Q1XXZvQi0sY9EDBfVIi5mDaZ60WjOAHjnEzAnpQOD6m9un-CYjNo2bAF2sqj0vJQ_elJhc03pySI0iPeazk_eP1tUN-4N4KlGxNQzDnrUwZCQhTpO_3BNXqP1FqtEBTRSMQ7Uqe1dmg4J8f37Jej2TPJZxS")' }}>
-                                <div className="absolute inset-0 bg-[#137fec]/5 pointer-events-none"></div>
-
-                                <div className="absolute top-1/4 left-1/3 transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-20">
-                                    <div className="bg-orange-500 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border-2 border-white flex items-center gap-1 hover:scale-110 transition-transform">
-                                        <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
-                                        <span>R$ 85</span>
-                                    </div>
-                                    <div className="w-0.5 h-3 bg-orange-500 mx-auto"></div>
-                                    <div className="w-2 h-2 bg-orange-500 rounded-full mx-auto shadow-sm ring-2 ring-white"></div>
-                                </div>
-
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer scale-110 z-30">
-                                    <div className="bg-[#137fec] text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-xl border-2 border-white flex items-center gap-1 ring-4 ring-[#137fec]/20 hover:scale-110 transition-transform">
-                                        <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                                        <span>R$ 95</span>
-                                    </div>
-                                    <div className="w-0.5 h-4 bg-[#137fec] mx-auto"></div>
-                                    <div className="w-2.5 h-2.5 bg-[#137fec] rounded-full mx-auto shadow-sm ring-2 ring-white"></div>
-                                </div>
-
-                                <div className="absolute bottom-1/4 right-1/4 transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10">
-                                    <div className="bg-red-500 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border-2 border-white flex items-center gap-1 hover:scale-110 transition-transform">
-                                        <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>hourglass_top</span>
-                                        <span>R$ 75</span>
-                                    </div>
-                                    <div className="w-0.5 h-3 bg-red-500 mx-auto"></div>
-                                    <div className="w-2 h-2 bg-red-500 rounded-full mx-auto shadow-sm ring-2 ring-white"></div>
-                                </div>
-
-                                <div className="absolute top-1/3 right-1/3 transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10">
-                                    <div className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border-2 border-slate-200 dark:border-slate-700 flex items-center gap-1 hover:scale-110 transition-transform">
-                                        <span>R$ 90</span>
-                                    </div>
-                                    <div className="w-0.5 h-3 bg-slate-400 mx-auto"></div>
-                                    <div className="w-2 h-2 bg-slate-400 rounded-full mx-auto shadow-sm ring-2 ring-white"></div>
-                                </div>
-                            </div>
-
-                            <div className="absolute right-6 bottom-10 flex flex-col gap-2">
-                                <button className="size-10 bg-white dark:bg-slate-900 rounded-lg shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">
-                                    <span className="material-symbols-outlined">add</span>
-                                </button>
-                                <button className="size-10 bg-white dark:bg-slate-900 rounded-lg shadow-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">
-                                    <span className="material-symbols-outlined">remove</span>
-                                </button>
-                                <button className="size-10 mt-4 bg-white dark:bg-slate-900 rounded-lg shadow-lg flex items-center justify-center text-[#137fec] hover:bg-slate-50 transition-colors">
-                                    <span className="material-symbols-outlined">my_location</span>
-                                </button>
-                            </div>
-
-                            <div className="absolute top-6 left-1/2 transform -translate-x-1/2">
-                                <button className="bg-white dark:bg-slate-900 text-[#137fec] font-bold text-sm px-6 py-2.5 rounded-full shadow-xl border border-[#137fec]/20 hover:bg-[#137fec] hover:text-white transition-all flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-lg">refresh</span>
-                                    Pesquisar nesta área
-                                </button>
-                            </div>
-                        </section>
-                    </main>
-                </>
-            )}
+            {/* Footer */}
+            <footer className="bg-slate-900 py-12 text-slate-400 border-t border-slate-800 mt-auto">
+                <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-slate-800 text-white p-1 rounded-lg">
+                            <span className="material-symbols-outlined text-2xl">local_taxi</span>
+                        </div>
+                        <span className="text-white font-bold text-xl tracking-tighter italic">Dirijo.ai</span>
+                    </div>
+                    <div className="flex gap-6 text-sm font-medium">
+                        <a href="#" className="hover:text-white transition-colors">Termos de Uso</a>
+                        <a href="#" className="hover:text-white transition-colors">Privacidade</a>
+                        <a href="#" className="hover:text-white transition-colors">Contato</a>
+                    </div>
+                    <p className="text-xs">© 2024 Dirijo Tecnologia Ltda.</p>
+                </div>
+            </footer>
         </div>
     );
 }

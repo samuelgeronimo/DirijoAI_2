@@ -156,7 +156,7 @@ export default function InstructorOnboardingDocs() {
                     cnh_category: cnhCategory,
                     cnh_issue_state: cnhState,
                     detran_registry_number: cfi,
-                    current_onboarding_step: 3
+                    current_onboarding_step: 4
                 })
                 .eq('id', user.id);
 
@@ -219,13 +219,13 @@ export default function InstructorOnboardingDocs() {
                 <section className="flex flex-col gap-3">
                     <div className="flex justify-between items-end">
                         <div>
-                            <p className="text-[#137fec] text-sm font-semibold uppercase tracking-wide">Etapa 2 de 6</p>
+                            <p className="text-[#137fec] text-sm font-semibold uppercase tracking-wide">Etapa 3 de 8</p>
                             <h2 className="text-xl font-bold mt-1 dark:text-white">Documentação e Credenciais</h2>
                         </div>
-                        <span className="text-sm font-medium text-[#4c739a] dark:text-gray-400">33% Completo</span>
+                        <span className="text-sm font-medium text-[#4c739a] dark:text-gray-400">37.5% Completo</span>
                     </div>
                     <div className="h-2.5 w-full bg-[#e7edf3] dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#137fec] rounded-full transition-all duration-500 ease-out" style={{ width: "33%" }}></div>
+                        <div className="h-full bg-[#137fec] rounded-full transition-all duration-500 ease-out" style={{ width: "37.5%" }}></div>
                     </div>
                 </section>
 

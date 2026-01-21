@@ -118,7 +118,7 @@ export default function InstructorOnboardingVideo() {
             const { error } = await supabase
                 .from('instructors')
                 .update({
-                    current_onboarding_step: 5,
+                    current_onboarding_step: 6,
                     video_url: publicUrl
                 })
                 .eq('id', user.id);
@@ -151,11 +151,11 @@ export default function InstructorOnboardingVideo() {
                     {/* Progress */}
                     <div className="flex flex-col gap-3">
                         <div className="flex gap-6 justify-between items-end">
-                            <p className="text-[#0d141b] dark:text-white text-base font-medium leading-normal">Etapa 4 de 6: Vídeo de Apresentação</p>
-                            <p className="text-[#137fec] text-sm font-bold leading-normal">66%</p>
+                            <p className="text-[#0d141b] dark:text-white text-base font-medium leading-normal">Etapa 5 de 8: Vídeo de Apresentação</p>
+                            <p className="text-[#137fec] text-sm font-bold leading-normal">62.5%</p>
                         </div>
                         <div className="rounded-full bg-slate-200 dark:bg-slate-700 h-2 overflow-hidden">
-                            <div className="h-full rounded-full bg-[#137fec] transition-all duration-500 ease-out" style={{ width: '66%' }}></div>
+                            <div className="h-full rounded-full bg-[#137fec] transition-all duration-500 ease-out" style={{ width: '62.5%' }}></div>
                         </div>
                     </div>
 

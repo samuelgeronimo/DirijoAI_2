@@ -1,21 +1,263 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 
-export default function InstructorProfile() {
+interface InstructorProfileProps {
+    instructorId: string;
+}
+
+interface Vehicle {
+    model: string;
+    brand: string;
+    year: number;
+    features: string[];
+    photo_urls: string[];
+}
+
+interface Availability {
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    hourly_rate_cents: number;
+}
+
+interface Review {
+    id: string;
+    rating: number;
+    comment: string;
+    created_at: string;
+    student_name: string; // We'll need to join with students/profiles to get this
+    student_avatar?: string;
+}
+
+interface Instructor {
+    id: string;
+    bio: string;
+    rating: number;
+    superpowers: string[];
+    video_url: string | null;
+    service_city: string;
+    profiles: {
+        full_name: string;
+        avatar_url: string;
+    };
+    vehicles: Vehicle[];
+    instructor_availability: Availability[];
+}
+
+export default function InstructorProfile({ instructorId }: InstructorProfileProps) {
+    const router = useRouter();
+    const [instructor, setInstructor] = useState<Instructor | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+
+    // Generate next 7 days starting tomorrow (D+1)
+    const next7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1 + i);
+        return d;
+    });
+
+    // Auto-select first day
+    useEffect(() => {
+        if (!selectedDate && next7Days.length > 0) {
+            setSelectedDate(next7Days[0]);
+        }
+    }, []);
+
+    // Helper to get day name
+    const getDayName = (date: Date) => {
+        return date.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3).toUpperCase();
+    };
+
+    const getDayNumber = (date: Date) => {
+        return date.getDate();
+    };
+
+    // Filter slots for selected date
+    const getSlotsForDate = (date: Date | null) => {
+        if (!date || !instructor) return [];
+
+        // 0 = Sunday, 1 = Monday... matches Supabase day_of_week (usually)
+        // Adjust if your DB uses 1=Monday. JS getDay() returns 0=Sun.
+        // Assuming DB matches JS for simplicity or 0-6.
+        const dayOfWeek = date.getDay();
+
+        const availability = instructor.instructor_availability.find(a => a.day_of_week === dayOfWeek);
+        if (!availability) return [];
+
+        // Generate slots from start_time to end_time
+        // This is a simplified logic. Ideally, check existing bookings.
+        const slots = [];
+        let startHour = parseInt(availability.start_time.split(':')[0]);
+        let endHour = parseInt(availability.end_time.split(':')[0]);
+
+        for (let h = startHour; h < endHour; h++) {
+            slots.push(`${h}:00`);
+        }
+        return slots;
+    };
+
+    const availableSlots = getSlotsForDate(selectedDate);
+
+    async function handleBooking() {
+        if (!selectedDate || !selectedTime) {
+            alert("Por favor, selecione uma data e horário.");
+            return;
+        }
+
+        // Use local date string YYYY-MM-DD to avoid timezone shifts
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        const params = new URLSearchParams({
+            instructorId: instructorId,
+            date: dateStr,
+            time: selectedTime
+        });
+
+        const targetUrl = `/checkout?${params.toString()}`;
+
+        const supabase = createClient();
+        const { data } = await supabase.auth.getUser();
+
+        if (data.user) {
+            router.push(targetUrl);
+        } else {
+            const redirectUrl = encodeURIComponent(targetUrl);
+            router.push(`/login?redirectTo=${redirectUrl}`);
+        }
+    }
+
+    async function handleLogout() {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        setCurrentUser(null);
+        router.refresh();
+        alert("Você saiu.");
+    }
+
+    useEffect(() => {
+        async function fetchInstructorData() {
+            setLoading(true);
+            const supabase = createClient();
+
+            // Fetch current user
+            const { data: userData } = await supabase.auth.getUser();
+            setCurrentUser(userData.user);
+
+            // Fetch Instructor Details
+            const { data: instructorData, error: instructorError } = await supabase
+                .from('instructors')
+                .select(`
+                    id,
+                    bio,
+                    rating,
+                    superpowers,
+                    video_url,
+                    service_city,
+                    profiles!instructors_id_fkey(full_name, avatar_url),
+                    vehicles(model, brand, year, features, photo_urls),
+                    instructor_availability(day_of_week, start_time, end_time, hourly_rate_cents)
+                `)
+                .eq('id', instructorId)
+                .single();
+
+            if (instructorError) {
+                console.error('Error fetching instructor:', instructorError);
+            } else {
+                // Fix issue where profiles might be returned as an array by Supabase join
+                const profilesData = Array.isArray(instructorData.profiles) ? instructorData.profiles[0] : instructorData.profiles;
+                setInstructor({ ...instructorData, profiles: profilesData } as unknown as Instructor);
+            }
+
+            // Fetch Success Gallery Photos from Storage
+            const { data: galleryFiles } = await supabase
+                .storage
+                .from('success_gallery')
+                .list(instructorId, {
+                    limit: 10,
+                    offset: 0,
+                    sortBy: { column: 'created_at', order: 'desc' },
+                });
+
+            if (galleryFiles && galleryFiles.length > 0) {
+                const urls = galleryFiles.map(file => {
+                    const { data } = supabase.storage
+                        .from('success_gallery')
+                        .getPublicUrl(`${instructorId}/${file.name}`);
+                    return data.publicUrl;
+                });
+                setGalleryPhotos(urls.filter(url => url !== null));
+            } else {
+                setGalleryPhotos([]);
+            }
+
+            // Fetch Reviews (Mocking real join for now as reviews table might be empty or structure varies)
+            // Ideally: .from('reviews').select('*, students(profiles(full_name, avatar_url))').eq('instructor_id', instructorId)
+            // For now, let's try to fetch if table exists, otherwise use empty array or mocked if needed for demo
+
+            /* 
+            const { data: reviewsData, error: reviewsError } = await supabase
+                .from('reviews')
+                .select('id, rating, comment, created_at, student_id') // We need to match schema for student name
+                .eq('instructor_id', instructorId);
+            */
+            // Temporarily using empty array for reviews until we confirm structure/data 
+            setReviews([]);
+
+            setLoading(false);
+        }
+
+        if (instructorId) {
+            fetchInstructorData();
+        }
+    }, [instructorId]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-[#f6f7f8] dark:bg-[#101922]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#137fec]"></div>
+            </div>
+        );
+    }
+
+    if (!instructor) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-[#f6f7f8] dark:bg-[#101922]">
+                <p className="text-slate-500">Instrutor não encontrado.</p>
+            </div>
+        );
+    }
+
+    const hourlyRate = instructor.instructor_availability?.[0]?.hourly_rate_cents
+        ? (instructor.instructor_availability[0].hourly_rate_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        : 'Sob Consulta';
+
+    const vehicle = instructor.vehicles?.[0];
+    const profile = instructor.profiles;
+
     return (
         <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden bg-[#f6f7f8] dark:bg-[#101922] text-[#0d141b] dark:text-slate-100 transition-colors duration-200 pb-24 font-sans">
             <div className="layout-container flex h-full grow flex-col">
                 <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e7edf3] dark:border-b-slate-700 bg-white dark:bg-[#101922] px-10 py-3 z-50">
                     <div className="flex items-center gap-8">
-                        <div className="flex items-center gap-4 text-[#137fec]">
+                        <Link href="/" className="flex items-center gap-4 text-[#137fec] group">
                             <div className="size-6">
                                 <span className="material-symbols-outlined text-3xl">directions_car</span>
                             </div>
                             <h2 className="text-[#0d141b] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">DireçãoPro</h2>
-                        </div>
+                        </Link>
                         <nav className="hidden md:flex items-center gap-9">
-                            <a className="text-[#0d141b] dark:text-slate-300 text-sm font-medium leading-normal hover:text-[#137fec]" href="#">Instrutores</a>
+                            <Link className="text-[#0d141b] dark:text-slate-300 text-sm font-medium leading-normal hover:text-[#137fec]" href="/search">Instrutores</Link>
                             <a className="text-[#0d141b] dark:text-slate-300 text-sm font-medium leading-normal hover:text-[#137fec]" href="#">Como Funciona</a>
                             <a className="text-[#0d141b] dark:text-slate-300 text-sm font-medium leading-normal hover:text-[#137fec]" href="#">Minhas Aulas</a>
                         </nav>
@@ -26,13 +268,21 @@ export default function InstructorProfile() {
                                 <div className="text-[#4c739a] flex border-none bg-[#e7edf3] dark:bg-slate-800 items-center justify-center pl-4 rounded-l-lg" data-icon="MagnifyingGlass">
                                     <span className="material-symbols-outlined text-xl">search</span>
                                 </div>
-                                <input className="form-input flex w-full min-w-0 flex-1 border-none bg-[#e7edf3] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:ring-0 h-full placeholder:text-[#4c739a] px-4 rounded-r-lg text-sm" placeholder="Buscar instrutor ou cidade" />
+                                <input className="form-input flex w-full min-w-0 flex-1 border-none bg-[#e7edf3] dark:bg-slate-800 text-[#0d141b] dark:text-white focus:ring-0 h-full placeholder:text-[#4c739a] px-4 rounded-r-lg text-sm" placeholder="Buscar instrutor ou cidade" defaultValue="" />
                             </div>
                         </label>
-                        <button className="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-[#137fec] text-white text-sm font-bold">
+                        <Link href="/login" className="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-[#137fec] text-white text-sm font-bold">
                             <span>Meu Perfil</span>
-                        </button>
-                        <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-[#137fec]/20" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuC85I0ZNoESrVXwJUS50eM4kIhGYrt2GGsomR5zhADYKBVur4GPcEcvQOmyqpKJj2AfEQ3y-KXO6TeLjbkziBj_xKUWgA08p9wXpr0xiGNudH-k5HjfeWEphuKEFHRP4lUqMdQgtP75eZ9mjDeDAH_LNDoSdZBSz1YhdrGz9VGS01zwjhuMg3r8QKh20MgzIOqk5ztWA8DLhkc1urx4DjaF2S_pIr2zTdraVBm0OcDEAc_s4ZNcti95GcVNLzxLxegs1tIXNEh6O7y4")' }}></div>
+                        </Link>
+                        {currentUser && (
+                            <button
+                                onClick={handleLogout}
+                                className="flex min-w-[80px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <span>Sair</span>
+                            </button>
+                        )}
+                        <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-[#137fec]/20" data-alt="User profile picture placeholder" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuC85I0ZNoESrVXwJUS50eM4kIhGYrt2GGsomR5zhADYKBVur4GPcEcvQOmyqpKJj2AfEQ3y-KXO6TeLjbkziBj_xKUWgA08p9wXpr0xiGNudH-k5HjfeWEphuKEFHRP4lUqMdQgtP75eZ9mjDeDAH_LNDoSdZBSz1YhdrGz9VGS01zwjhuMg3r8QKh20MgzIOqk5ztWA8DLhkc1urx4DjaF2S_pIr2zTdraVBm0OcDEAc_s4ZNcti95GcVNLzxLxegs1tIXNEh6O7y4")' }}></div>
                     </div>
                 </header>
                 <main className="flex flex-1 justify-center py-8">
@@ -40,18 +290,29 @@ export default function InstructorProfile() {
                         <div className="flex flex-col lg:flex-row gap-8 p-6 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
                             <div className="w-full lg:w-[480px] shrink-0">
                                 <div className="relative w-full aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-lg group cursor-pointer border-4 border-white dark:border-slate-800 ring-1 ring-slate-200 dark:ring-slate-700">
-                                    <div className="absolute inset-0 bg-cover bg-center opacity-90 transition-opacity group-hover:opacity-75" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCbuUkCPsp_x_JGjQoBGMqsHQuokGgoOG2f1EUodgUGkRJ98RfLo-41MKjh-FE4vewkZL203QWs-uc0ZtYzmuYYi-0fEm0MfgHDoJra9KexLwX4-LT_BB9EzZpv3kBn_rmDunRwhYYzEwpXKBVTYJp7ff54VjCksYftij8Iw4Zqw-lyYrw2zojSQ5SRE2rxuKsC9Jzq5ykWkoPRlLKmbLVhrzP3H4psJwXfTrLlrC7gl_n72d9jpxOwdU0_rDAo8wrfLGa8cN8yT0Ny")' }}></div>
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="size-20 bg-[#137fec]/90 text-white rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(19,127,236,0.6)] group-hover:scale-110 transition-transform duration-300 animate-pulse">
-                                            <span className="material-symbols-outlined text-5xl ml-1" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
-                                        </div>
-                                    </div>
-                                    <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                                        <p className="text-white font-bold text-sm flex items-center gap-2">
-                                            <span className="material-symbols-outlined text-red-500 text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>videocam</span>
-                                            Assista: Como perdi o medo e passei de 1ª
-                                        </p>
-                                    </div>
+                                    {instructor.video_url ? (
+                                        <video
+                                            src={instructor.video_url}
+                                            className="w-full h-full object-cover"
+                                            controls
+                                            poster={profile.avatar_url || ""}
+                                        />
+                                    ) : (
+                                        <>
+                                            <div className="absolute inset-0 bg-cover bg-center opacity-90 transition-opacity group-hover:opacity-75" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCbuUkCPsp_x_JGjQoBGMqsHQuokGgoOG2f1EUodgUGkRJ98RfLo-41MKjh-FE4vewkZL203QWs-uc0ZtYzmuYYi-0fEm0MfgHDoJra9KexLwX4-LT_BB9EzZpv3kBn_rmDunRwhYYzEwpXKBVTYJp7ff54VjCksYftij8Iw4Zqw-lyYrw2zojSQ5SRE2rxuKsC9Jzq5ykWkoPRlLKmbLVhrzP3H4psJwXfTrLlrC7gl_n72d9jpxOwdU0_rDAo8wrfLGa8cN8yT0Ny")' }}></div>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="size-20 bg-[#137fec]/90 text-white rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(19,127,236,0.6)] group-hover:scale-110 transition-transform duration-300 animate-pulse">
+                                                    <span className="material-symbols-outlined text-5xl ml-1" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
+                                                </div>
+                                            </div>
+                                            <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                                                <p className="text-white font-bold text-sm flex items-center gap-2">
+                                                    <span className="material-symbols-outlined text-red-500 text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>videocam</span>
+                                                    Assista: Como perdi o medo e passei de 1ª
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex flex-col justify-center flex-1">
@@ -59,10 +320,10 @@ export default function InstructorProfile() {
                                     <div className="flex items-center gap-2">
                                         <span className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Disponível Hoje</span>
                                         <span className="flex items-center gap-1 text-xs font-bold text-slate-500">
-                                            <span className="material-symbols-outlined text-sm">location_on</span> São Paulo, SP
+                                            <span className="material-symbols-outlined text-sm">location_on</span> {instructor.service_city}
                                         </span>
                                     </div>
-                                    <h1 className="text-[#0d141b] dark:text-white text-3xl md:text-4xl font-bold tracking-tight">Carlos Oliveira</h1>
+                                    <h1 className="text-[#0d141b] dark:text-white text-3xl md:text-4xl font-bold tracking-tight">{profile.full_name}</h1>
                                     <div className="flex items-center gap-2">
                                         <span className="material-symbols-outlined text-[#137fec] text-xl" title="Instrutor Verificado">verified</span>
                                         <p className="text-[#137fec] font-bold text-lg">Instrutor Credenciado DETRAN - Categoria B</p>
@@ -71,12 +332,13 @@ export default function InstructorProfile() {
                                 <div className="flex items-center gap-4 mb-6">
                                     <div className="flex flex-col border-r border-slate-200 dark:border-slate-700 pr-4">
                                         <div className="flex text-yellow-400 text-lg">
-                                            {[1, 2, 3, 4].map(star => (
-                                                <span key={star} className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                                            {[1, 2, 3, 4, 5].map(star => (
+                                                <span key={star} className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                                    {star <= (instructor.rating || 0) ? 'star' : 'star_border'}
+                                                </span>
                                             ))}
-                                            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>star_half</span>
                                         </div>
-                                        <p className="text-xs text-slate-500 font-medium">4.9 (128 avaliações)</p>
+                                        <p className="text-xs text-slate-500 font-medium">{instructor.rating?.toFixed(1) || 'Novo'} ({reviews.length > 0 ? reviews.length : 128} avaliações)</p>
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-2xl font-bold text-[#0d141b] dark:text-white">+500</span>
@@ -103,51 +365,78 @@ export default function InstructorProfile() {
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Últimos Aprovados</span>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md">
-                                    <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDkCFfBFG99wmS4K89Crsn1KhtCkxmnXSdzcn64zXhCMSo-6eVOz6lNUNVpElbjgtSb9EAJr_oXpg6wunVB6sVhFlaB5zRGsaNk9V4mZ5uUW2QYqS5b4wLBeUK2rsJOyW9-DDcomJBHm3hlJBdvheFc6hhN5dzYEJybk2zVOuGPoQIH6_BCkcvHRJ_n9e2HaqQtXDsqsJO9I1-zxPenxKoUf0gEyzQ2zdSdLm9cSrRClYLQfwp-EJH5QA4fICfsMO4HNZH4Ruu0ccYn")' }}></div>
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                                    <div className="absolute bottom-3 left-3 right-3 text-white">
-                                        <p className="font-bold text-sm">Mariana C.</p>
-                                        <div className="inline-flex items-center gap-1 bg-green-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
-                                            <span className="material-symbols-outlined text-[12px]">check_circle</span> Passou de 1ª
+                                {galleryPhotos.length > 0 ? (
+                                    <>
+                                        {galleryPhotos.slice(0, 5).map((url, idx) => (
+                                            <div key={idx} className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md fade-in animate-in">
+                                                <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: `url("${url}")` }}></div>
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                                                {/* Mock data for these overlays since we only have the image url for now */}
+                                                <div className="absolute bottom-3 left-3 right-3 text-white">
+                                                    <p className="font-bold text-sm">Aluno Aprovado</p>
+                                                    <div className="inline-flex items-center gap-1 bg-green-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
+                                                        <span className="material-symbols-outlined text-[12px]">check_circle</span> Conquista
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {galleryPhotos.length > 5 && (
+                                            <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md hidden lg:block">
+                                                <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
+                                                    <p className="text-[#137fec] font-bold text-sm">+{galleryPhotos.length - 5} outros</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md">
+                                            <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDkCFfBFG99wmS4K89Crsn1KhtCkxmnXSdzcn64zXhCMSo-6eVOz6lNUNVpElbjgtSb9EAJr_oXpg6wunVB6sVhFlaB5zRGsaNk9V4mZ5uUW2QYqS5b4wLBeUK2rsJOyW9-DDcomJBHm3hlJBdvheFc6hhN5dzYEJybk2zVOuGPoQIH6_BCkcvHRJ_n9e2HaqQtXDsqsJO9I1-zxPenxKoUf0gEyzQ2zdSdLm9cSrRClYLQfwp-EJH5QA4fICfsMO4HNZH4Ruu0ccYn")', backgroundSize: 'cover' }}></div>
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                                            <div className="absolute bottom-3 left-3 right-3 text-white">
+                                                <p className="font-bold text-sm">Mariana C.</p>
+                                                <div className="inline-flex items-center gap-1 bg-green-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
+                                                    <span className="material-symbols-outlined text-[12px]">check_circle</span> Passou de 1ª
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md">
-                                    <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDMHBgV3GbjDnKMge98mdWKzzByUycM2PHETZSv2IpMNFVNDX4i6JVTxREbHNPVnTQmKe3wq_c7mvwZeXFGTt4YnM-Lq4Mg0ed9unr-A2J921Y_IeWH23cj2fY869puuOuTYUMEPUxO5aG-EHzEQF7X34nOWsSEDNSd4bIQmLoZP73kEmtfK0HIcVnoZNVEQNBXNOSzNY2U_3_4l9kEmAE1Z2Fd3c8i4N8iCwocfuUln-U8nqd7EuSr7FrGTolJszj19AbY6K_UcwgY")' }}></div>
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                                    <div className="absolute bottom-3 left-3 right-3 text-white">
-                                        <p className="font-bold text-sm">Rodrigo M.</p>
-                                        <div className="inline-flex items-center gap-1 bg-blue-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
-                                            <span className="material-symbols-outlined text-[12px]">timer</span> 30 dias de aula
+                                        <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md">
+                                            <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDMHBgV3GbjDnKMge98mdWKzzByUycM2PHETZSv2IpMNFVNDX4i6JVTxREbHNPVnTQmKe3wq_c7mvwZeXFGTt4YnM-Lq4Mg0ed9unr-A2J921Y_IeWH23cj2fY869puuOuTYUMEPUxO5aG-EHzEQF7X34nOWsSEDNSd4bIQmLoZP73kEmtfK0HIcVnoZNVEQNBXNOSzNY2U_3_4l9kEmAE1Z2Fd3c8i4N8iCwocfuUln-U8nqd7EuSr7FrGTolJszj19AbY6K_UcwgY")', backgroundSize: 'cover' }}></div>
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                                            <div className="absolute bottom-3 left-3 right-3 text-white">
+                                                <p className="font-bold text-sm">Rodrigo M.</p>
+                                                <div className="inline-flex items-center gap-1 bg-blue-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
+                                                    <span className="material-symbols-outlined text-[12px]">timer</span> 30 dias de aula
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md hidden md:block">
-                                    <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuADnxtkMhcF9bzx6J-Tf-4SIGtDvMcUzeN4d5T5OjunMuDElH2KT2v8OQ4JD4AQLeSnr5kySaVg1_pbeFwuyaa3YG4l_XS7rF0_R_wrmU61TPJq6-hB1VJs15yQmDtpiEiq4__73upHRcHJl3p_DJh4LcAIuIvOz5YDsa0UH9oWmSzorWsS5mRdmUg3iqhbGNlprPzGyZhVndGPVCetVhrbOGpe4iiTy38WpPJYisyrOPNEW_Ws-iYlgOj6EY_l9ZmKaNvpccDkdWFC")' }}></div>
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                                    <div className="absolute bottom-3 left-3 right-3 text-white">
-                                        <p className="font-bold text-sm">Felipe S.</p>
-                                        <div className="inline-flex items-center gap-1 bg-green-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
-                                            <span className="material-symbols-outlined text-[12px]">check_circle</span> Passou de 1ª
+                                        <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md hidden md:block">
+                                            <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuADnxtkMhcF9bzx6J-Tf-4SIGtDvMcUzeN4d5T5OjunMuDElH2KT2v8OQ4JD4AQLeSnr5kySaVg1_pbeFwuyaa3YG4l_XS7rF0_R_wrmU61TPJq6-hB1VJs15yQmDtpiEiq4__73upHRcHJl3p_DJh4LcAIuIvOz5YDsa0UH9oWmSzorWsS5mRdmUg3iqhbGNlprPzGyZhVndGPVCetVhrbOGpe4iiTy38WpPJYisyrOPNEW_Ws-iYlgOj6EY_l9ZmKaNvpccDkdWFC")', backgroundSize: 'cover' }}></div>
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                                            <div className="absolute bottom-3 left-3 right-3 text-white">
+                                                <p className="font-bold text-sm">Felipe S.</p>
+                                                <div className="inline-flex items-center gap-1 bg-green-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
+                                                    <span className="material-symbols-outlined text-[12px]">check_circle</span> Passou de 1ª
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md hidden md:block">
-                                    <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDsQ9TDz5ACfe9SDTYQntSQOWUcjLrbO5gyRqM-CS9G85p3AI2gDl6HXkNDk4PXMX6ieV0qT_VZ97qoGOOVWimFNkDGqgj0Eoq5VqiZn4pb0kEAG_VIE-5-E4d9rm-aWP2T1bj_l6qYCvtR79VbFbFcih025veuKS_u4Ipb0fhyMCqmXEt3kBEhQeG3FE4v7oAM2Jva-plaMFwHiypg_Xnn6i4plkDK3JJx3HBDOl6MM87C6AyXp5TyjJ--liyCLHnTB1JXP26oIgTD")' }}></div>
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                                    <div className="absolute bottom-3 left-3 right-3 text-white">
-                                        <p className="font-bold text-sm">Carla B.</p>
-                                        <div className="inline-flex items-center gap-1 bg-purple-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
-                                            <span className="material-symbols-outlined text-[12px]">psychology</span> Perdeu o medo
+                                        <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md hidden md:block">
+                                            <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDsQ9TDz5ACfe9SDTYQntSQOWUcjLrbO5gyRqM-CS9G85p3AI2gDl6HXkNDk4PXMX6ieV0qT_VZ97qoGOOVWimFNkDGqgj0Eoq5VqiZn4pb0kEAG_VIE-5-E4d9rm-aWP2T1bj_l6qYCvtR79VbFbFcih025veuKS_u4Ipb0fhyMCqmXEt3kBEhQeG3FE4v7oAM2Jva-plaMFwHiypg_Xnn6i4plkDK3JJx3HBDOl6MM87C6AyXp5TyjJ--liyCLHnTB1JXP26oIgTD")', backgroundSize: 'cover' }}></div>
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                                            <div className="absolute bottom-3 left-3 right-3 text-white">
+                                                <p className="font-bold text-sm">Carla B.</p>
+                                                <div className="inline-flex items-center gap-1 bg-purple-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
+                                                    <span className="material-symbols-outlined text-[12px]">psychology</span> Perdeu o medo
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md hidden lg:block">
-                                    <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
-                                        <p className="text-[#137fec] font-bold text-sm">+400 outros</p>
-                                    </div>
-                                </div>
+                                        <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md hidden lg:block">
+                                            <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
+                                                <p className="text-[#137fec] font-bold text-sm">+400 outros</p>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
@@ -172,20 +461,18 @@ export default function InstructorProfile() {
                                     </h3>
                                     <div className="mb-6">
                                         <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-4 font-medium">
-                                            Transformo pessoas ansiosas em motoristas confiantes em tempo recorde.
+                                            {instructor.bio || "Transformo pessoas ansiosas em motoristas confiantes em tempo recorde."}
                                         </p>
                                         <ul className="space-y-3 mb-6">
-                                            <li className="flex items-start gap-3">
-                                                <span className="material-symbols-outlined text-green-500 shrink-0">check_circle</span>
-                                                <span className="text-slate-700 dark:text-slate-300 text-sm"><strong>Especialista em Fobias:</strong> Técnicas comprovadas de PNL para perder o medo do trânsito.</span>
-                                            </li>
+                                            {instructor.superpowers?.map((power, i) => (
+                                                <li key={i} className="flex items-start gap-3">
+                                                    <span className="material-symbols-outlined text-green-500 shrink-0">check_circle</span>
+                                                    <span className="text-slate-700 dark:text-slate-300 text-sm capitalize"><strong>Especialista:</strong> {power}</span>
+                                                </li>
+                                            ))}
                                             <li className="flex items-start gap-3">
                                                 <span className="material-symbols-outlined text-green-500 shrink-0">check_circle</span>
                                                 <span className="text-slate-700 dark:text-slate-300 text-sm"><strong>Simulação de Exame:</strong> Treino prático nas rotas oficiais do DETRAN.</span>
-                                            </li>
-                                            <li className="flex items-start gap-3">
-                                                <span className="material-symbols-outlined text-green-500 shrink-0">check_circle</span>
-                                                <span className="text-slate-700 dark:text-slate-300 text-sm"><strong>Domínio da Embreagem:</strong> Nunca mais deixe o carro morrer na subida.</span>
                                             </li>
                                         </ul>
                                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 border border-blue-100 dark:border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row items-center sm:items-start gap-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
@@ -221,18 +508,20 @@ export default function InstructorProfile() {
                                         <span className="material-symbols-outlined text-[#137fec]">directions_car</span>
                                         Galeria do Veículo
                                     </h3>
-                                    <p className="text-[#4c739a] text-sm mb-4">Volkswagen Polo 2023 - Completo (Direção Elétrica, Ar-condicionado, Airbags)</p>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        <div className="aspect-video bg-slate-200 rounded-lg overflow-hidden group cursor-pointer">
-                                            <div className="w-full h-full bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDsQ9TDz5ACfe9SDTYQntSQOWUcjLrbO5gyRqM-CS9G85p3AI2gDl6HXkNDk4PXMX6ieV0qT_VZ97qoGOOVWimFNkDGqgj0Eoq5VqiZn4pb0kEAG_VIE-5-E4d9rm-aWP2T1bj_l6qYCvtR79VbFbFcih025veuKS_u4Ipb0fhyMCqmXEt3kBEhQeG3FE4v7oAM2Jva-plaMFwHiypg_Xnn6i4plkDK3JJx3HBDOl6MM87C6AyXp5TyjJ--liyCLHnTB1JXP26oIgTD")' }}></div>
-                                        </div>
-                                        <div className="aspect-video bg-slate-200 rounded-lg overflow-hidden group cursor-pointer">
-                                            <div className="w-full h-full bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuADnxtkMhcF9bzx6J-Tf-4SIGtDvMcUzeN4d5T5OjunMuDElH2KT2v8OQ4JD4AQLeSnr5kySaVg1_pbeFwuyaa3YG4l_XS7rF0_R_wrmU61TPJq6-hB1VJs15yQmDtpiEiq4__73upHRcHJl3p_DJh4LcAIuIvOz5YDsa0UH9oWmSzorWsS5mRdmUg3iqhbGNlprPzGyZhVndGPVCetVhrbOGpe4iiTy38WpPJYisyrOPNEW_Ws-iYlgOj6EY_l9ZmKaNvpccDkdWFC")' }}></div>
-                                        </div>
-                                        <div className="aspect-video bg-slate-200 rounded-lg overflow-hidden group cursor-pointer">
-                                            <div className="w-full h-full bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAXB1xg9mQytJ6Jk1glvI5N7uldHtG47tNuipcyi7B5dMY7_qMc5LBiqLFlgdQ8e85tnqTNbjCDwEhnKD-xCOJPsXfXD7dACs_c88GNWyMygk-AnuEUdQePhlsTzxli7yk5ISJr70kHcHGaC8lZk3uSIoeMky9ybs2PPsqYvjH7k3UTIleET5NYTfhbIjSebNTs1BQHSrkcuwemuLf7XQzPKNUMQXQCqabpdEapJzssGILVmbkDdnKevFgNTg0E8VbwXHKtXzDl6vxw")' }}></div>
-                                        </div>
-                                    </div>
+                                    {vehicle ? (
+                                        <>
+                                            <p className="text-[#4c739a] text-sm mb-4">{vehicle.brand} {vehicle.model} {vehicle.year} - {vehicle.features?.join(', ')}</p>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                {vehicle.photo_urls?.map((url, idx) => (
+                                                    <div key={idx} className="aspect-video bg-slate-200 rounded-lg overflow-hidden group cursor-pointer">
+                                                        <div className="w-full h-full bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: `url("${url}")` }}></div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <p className="text-slate-500 text-sm">Nenhum veículo cadastrado.</p>
+                                    )}
                                 </section>
                                 <section className="flex flex-col gap-6">
                                     <div className="flex justify-between items-center">
@@ -243,18 +532,19 @@ export default function InstructorProfile() {
                                         <button className="text-[#137fec] text-sm font-bold hover:underline">Ver todas</button>
                                     </div>
                                     <div className="space-y-4">
+                                        {/* Mock Reviews matching the prototype for visual consistency until real data is ready */}
                                         <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800">
                                             <div className="flex justify-between mb-3">
                                                 <div className="flex gap-3">
-                                                    <div className="size-10 rounded-full bg-slate-200" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDkCFfBFG99wmS4K89Crsn1KhtCkxmnXSdzcn64zXhCMSo-6eVOz6lNUNVpElbjgtSb9EAJr_oXpg6wunVB6sVhFlaB5zRGsaNk9V4mZ5uUW2QYqS5b4wLBeUK2rsJOyW9-DDcomJBHm3hlJBdvheFc6hhN5dzYEJybk2zVOuGPoQIH6_BCkcvHRJ_n9e2HaqQtXDsqsJO9I1-zxPenxKoUf0gEyzQ2zdSdLm9cSrRClYLQfwp-EJH5QA4fICfsMO4HNZH4Ruu0ccYn")', backgroundSize: 'cover' }}></div>
+                                                    <div className="size-10 rounded-full bg-slate-200" data-alt="Student profile photo" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDkCFfBFG99wmS4K89Crsn1KhtCkxmnXSdzcn64zXhCMSo-6eVOz6lNUNVpElbjgtSb9EAJr_oXpg6wunVB6sVhFlaB5zRGsaNk9V4mZ5uUW2QYqS5b4wLBeUK2rsJOyW9-DDcomJBHm3hlJBdvheFc6hhN5dzYEJybk2zVOuGPoQIH6_BCkcvHRJ_n9e2HaqQtXDsqsJO9I1-zxPenxKoUf0gEyzQ2zdSdLm9cSrRClYLQfwp-EJH5QA4fICfsMO4HNZH4Ruu0ccYn")', backgroundSize: 'cover' }}></div>
                                                     <div>
                                                         <p className="text-sm font-bold text-[#0d141b] dark:text-white">Mariana Costa</p>
                                                         <p className="text-xs text-[#4c739a]">Aprovada em Junho/2023</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex text-yellow-400">
-                                                    {[1, 2, 3, 4, 5].map(star => (
-                                                        <span key={star} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <span key={i} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                                                     ))}
                                                 </div>
                                             </div>
@@ -265,15 +555,15 @@ export default function InstructorProfile() {
                                         <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800">
                                             <div className="flex justify-between mb-3">
                                                 <div className="flex gap-3">
-                                                    <div className="size-10 rounded-full bg-slate-200" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDMHBgV3GbjDnKMge98mdWKzzByUycM2PHETZSv2IpMNFVNDX4i6JVTxREbHNPVnTQmKe3wq_c7mvwZeXFGTt4YnM-Lq4Mg0ed9unr-A2J921Y_IeWH23cj2fY869puuOuTYUMEPUxO5aG-EHzEQF7X34nOWsSEDNSd4bIQmLoZP73kEmtfK0HIcVnoZNVEQNBXNOSzNY2U_3_4l9kEmAE1Z2Fd3c8i4N8iCwocfuUln-U8nqd7EuSr7FrGTolJszj19AbY6K_UcwgY")', backgroundSize: 'cover' }}></div>
+                                                    <div className="size-10 rounded-full bg-slate-200" data-alt="Student profile photo" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDMHBgV3GbjDnKMge98mdWKzzByUycM2PHETZSv2IpMNFVNDX4i6JVTxREbHNPVnTQmKe3wq_c7mvwZeXFGTt4YnM-Lq4Mg0ed9unr-A2J921Y_IeWH23cj2fY869puuOuTYUMEPUxO5aG-EHzEQF7X34nOWsSEDNSd4bIQmLoZP73kEmtfK0HIcVnoZNVEQNBXNOSzNY2U_3_4l9kEmAE1Z2Fd3c8i4N8iCwocfuUln-U8nqd7EuSr7FrGTolJszj19AbY6K_UcwgY")', backgroundSize: 'cover' }}></div>
                                                     <div>
                                                         <p className="text-sm font-bold text-[#0d141b] dark:text-white">Rodrigo Mendes</p>
                                                         <p className="text-xs text-[#4c739a]">Habilitado em Agosto/2023</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex text-yellow-400">
-                                                    {[1, 2, 3, 4, 5].map(star => (
-                                                        <span key={star} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <span key={i} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                                                     ))}
                                                 </div>
                                             </div>
@@ -296,45 +586,65 @@ export default function InstructorProfile() {
                                         <div className="p-4">
                                             <div className="mb-6">
                                                 <div className="flex justify-between items-center mb-4">
-                                                    <p className="text-sm font-bold text-[#0d141b] dark:text-white">Março 2024</p>
-                                                    <div className="flex gap-2">
-                                                        <button className="material-symbols-outlined text-sm p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800">chevron_left</button>
-                                                        <button className="material-symbols-outlined text-sm p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800">chevron_right</button>
-                                                    </div>
+                                                    <p className="text-sm font-bold text-[#0d141b] dark:text-white">
+                                                        {selectedDate ? selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : 'Selecione'}
+                                                    </p>
                                                 </div>
-                                                <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 mb-2">
-                                                    <span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span>
-                                                </div>
-                                                <div className="grid grid-cols-7 gap-1">
-                                                    <div className="h-8 flex items-center justify-center text-slate-300 text-xs">25</div>
-                                                    <div className="h-8 flex items-center justify-center text-slate-300 text-xs">26</div>
-                                                    <div className="h-8 flex items-center justify-center text-slate-300 text-xs">27</div>
-                                                    <div className="h-8 flex items-center justify-center text-slate-300 text-xs">28</div>
-                                                    <div className="h-8 flex items-center justify-center text-slate-300 text-xs">29</div>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">1</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">2</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium bg-[#137fec] text-white shadow-md shadow-[#137fec]/30">3</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">4</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">5</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">6</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">7</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">8</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">9</button>
-                                                    <button className="h-8 flex items-center justify-center rounded-lg text-xs font-medium hover:bg-[#137fec]/10">10</button>
+
+                                                {/* Dynamic Days Grid */}
+                                                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4">
+                                                    {next7Days.map((date, idx) => {
+                                                        const isSelected = selectedDate?.toDateString() === date.toDateString();
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => {
+                                                                    setSelectedDate(date);
+                                                                    setSelectedTime(null);
+                                                                }}
+                                                                className={`flex flex-col items-center justify-center min-w-[45px] h-[55px] rounded-lg border transition-all ${isSelected
+                                                                    ? 'bg-[#137fec] border-[#137fec] text-white shadow-md'
+                                                                    : 'bg-white dark:bg-[#1a2632] border-slate-200 dark:border-slate-800 text-slate-500 hover:border-[#137fec]/50'
+                                                                    }`}
+                                                            >
+                                                                <span className="text-[9px] font-bold uppercase">{getDayName(date)}</span>
+                                                                <span className="text-base font-black leading-none">{getDayNumber(date)}</span>
+                                                            </button>
+                                                        )
+                                                    })}
                                                 </div>
                                             </div>
+
                                             <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 text-xs p-2.5 rounded-lg border border-amber-200 dark:border-amber-800 mb-4 flex items-start gap-2">
                                                 <span className="material-symbols-outlined text-sm shrink-0 mt-0.5">timer</span>
-                                                <span className="font-medium leading-tight">Alta demanda! Selecione um horário em azul para reservar por 10 min.</span>
+                                                <span className="font-medium leading-tight">D+1: Agendamento mínimo com 24h de antecedência.</span>
                                             </div>
-                                            <div className="mb-6">
-                                                <p className="text-xs font-bold text-[#4c739a] mb-3 uppercase tracking-wide">Horários para 03/Mar</p>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <button className="border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-600 text-xs font-bold py-2 rounded-lg line-through decoration-slate-400 cursor-not-allowed">08:00 - 09:00</button>
-                                                    <button className="border border-[#137fec] bg-[#137fec] text-white shadow-lg shadow-[#137fec]/30 text-xs font-bold py-2 rounded-lg transform hover:scale-105 transition-all ring-2 ring-[#137fec] ring-offset-1 dark:ring-offset-slate-900">09:15 - 10:15</button>
-                                                    <button className="border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-600 text-xs font-bold py-2 rounded-lg line-through decoration-slate-400 cursor-not-allowed">10:30 - 11:30</button>
-                                                    <button className="border border-[#137fec] bg-white dark:bg-slate-900 text-[#137fec] text-xs font-bold py-2 rounded-lg hover:bg-[#137fec] hover:text-white transition-colors border-dashed">14:00 - 15:00</button>
-                                                </div>
+
+                                            <div className="mb-2">
+                                                <p className="text-xs font-bold text-[#4c739a] mb-3 uppercase tracking-wide">
+                                                    {selectedDate ? `Horários para ${selectedDate.toLocaleDateString('pt-BR')}` : 'Horários'}
+                                                </p>
+
+                                                {availableSlots.length > 0 ? (
+                                                    <div className="grid grid-cols-3 gap-2 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
+                                                        {availableSlots.map((slot) => (
+                                                            <button
+                                                                key={slot}
+                                                                onClick={() => setSelectedTime(slot)}
+                                                                className={`py-2 px-1 rounded-lg text-xs font-bold border transition-all ${selectedTime === slot
+                                                                    ? 'bg-[#137fec] border-[#137fec] text-white shadow-md'
+                                                                    : 'bg-white dark:bg-[#1a2632] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#137fec]'
+                                                                    }`}
+                                                            >
+                                                                {slot}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-4 text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">
+                                                        Nenhum horário disponível nesta data.
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -394,14 +704,17 @@ export default function InstructorProfile() {
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Melhor preço no pacote</p>
                         <div className="flex items-baseline gap-1">
                             <span className="text-sm text-slate-600 dark:text-slate-300 font-bold">A partir de</span>
-                            <span className="text-2xl font-bold text-[#137fec]">R$ 60</span>
+                            <span className="text-2xl font-bold text-[#137fec]">{hourlyRate}</span>
                             <span className="text-sm text-slate-500 font-medium">/aula</span>
                         </div>
                     </div>
-                    <Link href="/auth" className="bg-[#137fec] hover:bg-[#137fec]/90 text-white font-bold text-base py-3 px-8 rounded-lg shadow-lg shadow-[#137fec]/40 transition-all hover:scale-105 flex items-center gap-2">
+                    <button
+                        onClick={handleBooking}
+                        className="bg-[#137fec] hover:bg-[#137fec]/90 text-white font-bold text-base py-3 px-8 rounded-lg shadow-lg shadow-[#137fec]/40 transition-all hover:scale-105 flex items-center gap-2"
+                    >
                         <span>RESERVAR HORÁRIO</span>
                         <span className="material-symbols-outlined">arrow_forward</span>
-                    </Link>
+                    </button>
                 </div>
             </div>
         </div>
