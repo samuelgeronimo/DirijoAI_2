@@ -81,26 +81,67 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
         return date.getDate();
     };
 
+    const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+
+    // Fetch confirmed bookings for the selected date
+    useEffect(() => {
+        async function fetchBookings() {
+            if (!selectedDate || !instructorId) return;
+
+            const supabase = createClient();
+
+            // Construct range for the entire day (Local Time -> ISO String)
+            // We want to match lessons that fall on this specific YYYY-MM-DD in the local timezone
+            // Best approach: filter by range in ISO format
+            const startOfDay = new Date(selectedDate);
+            startOfDay.setHours(0, 0, 0, 0);
+
+            const endOfDay = new Date(selectedDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const { data: lessons, error } = await supabase
+                .from('lessons')
+                .select('scheduled_at')
+                .eq('instructor_id', instructorId)
+                .in('status', ['scheduled', 'in_progress'])
+                .gte('scheduled_at', startOfDay.toISOString())
+                .lte('scheduled_at', endOfDay.toISOString());
+
+            if (lessons) {
+                const busyTimes = lessons.map(lesson => {
+                    const lessonDate = new Date(lesson.scheduled_at);
+                    // Format as "H:00" or "HH:00" depending on storage, matching getSlotsForDate
+                    // getSlotsForDate produces "8:00", "9:00"...
+                    return `${lessonDate.getHours()}:00`;
+                });
+                setBookedSlots(busyTimes);
+            } else {
+                setBookedSlots([]);
+            }
+        }
+
+        fetchBookings();
+    }, [selectedDate, instructorId]);
+
     // Filter slots for selected date
     const getSlotsForDate = (date: Date | null) => {
         if (!date || !instructor) return [];
 
-        // 0 = Sunday, 1 = Monday... matches Supabase day_of_week (usually)
-        // Adjust if your DB uses 1=Monday. JS getDay() returns 0=Sun.
-        // Assuming DB matches JS for simplicity or 0-6.
         const dayOfWeek = date.getDay();
 
         const availability = instructor.instructor_availability.find(a => a.day_of_week === dayOfWeek);
         if (!availability) return [];
 
-        // Generate slots from start_time to end_time
-        // This is a simplified logic. Ideally, check existing bookings.
         const slots = [];
         const startHour = parseInt(availability.start_time.split(':')[0]);
         const endHour = parseInt(availability.end_time.split(':')[0]);
 
         for (let h = startHour; h < endHour; h++) {
-            slots.push(`${h}:00`);
+            const timeLabel = `${h}:00`;
+            // Exclude booked slots
+            if (!bookedSlots.includes(timeLabel)) {
+                slots.push(timeLabel);
+            }
         }
         return slots;
     };

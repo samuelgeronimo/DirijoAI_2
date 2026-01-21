@@ -1,4 +1,13 @@
-export function ProfilePreview() {
+interface ProfilePreviewProps {
+    instructor: any;
+}
+
+export function ProfilePreview({ instructor }: ProfilePreviewProps) {
+    if (!instructor) return null;
+
+    const profile = instructor.profiles;
+    const vehicle = instructor.vehicles?.[0];
+
     return (
         <aside className="w-[380px] hidden xl:flex flex-col border-l border-slate-200 dark:border-instructor-surface-dark-2 bg-white dark:bg-[#0c1810] p-6 h-full sticky top-0">
             <div className="mb-4">
@@ -22,8 +31,9 @@ export function ProfilePreview() {
                             <div
                                 className="absolute inset-0 bg-cover bg-center opacity-80"
                                 style={{
-                                    backgroundImage:
-                                        "url('https://lh3.googleusercontent.com/aida-public/AB6AXuC8GpQoClH2nso0t4wohZ6IXHN2KHBxSc7ELgIJNi6vZ7_V03iduq9GwFqc87VEuJkxYKYFay5tPU9wtGIBQ4jRgJN6LJH_9gZXqccEn_Uc1lZKSWdnb-jZMtPvUHv8vGxDKSn-2oCAyRamP0PJGaqrDHcqP9wRfouMMdwuobDsI2sfaKBjxMpgIrvVqrDX_g4wXg0Isup0CjUuYuzg3tjROxkKbIAIpwXV6LcwwI_NvI5pLUYPtYe0orCISAlwMj3-_PSXMSQemGIo')",
+                                    backgroundImage: vehicle?.photo_urls?.[0]
+                                        ? `url('${vehicle.photo_urls[0]}')`
+                                        : "url('https://lh3.googleusercontent.com/aida-public/AB6AXuC8GpQoClH2nso0t4wohZ6IXHN2KHBxSc7ELgIJNi6vZ7_V03iduq9GwFqc87VEuJkxYKYFay5tPU9wtGIBQ4jRgJN6LJH_9gZXqccEn_Uc1lZKSWdnb-jZMtPvUHv8vGxDKSn-2oCAyRamP0PJGaqrDHcqP9wRfouMMdwuobDsI2sfaKBjxMpgIrvVqrDX_g4wXg0Isup0CjUuYuzg3tjROxkKbIAIpwXV6LcwwI_NvI5pLUYPtYe0orCISAlwMj3-_PSXMSQemGIo')",
                                 }}
                             ></div>
                             <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -42,13 +52,13 @@ export function ProfilePreview() {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h4 className="text-lg font-black leading-tight">
-                                        Instrutor Carlos
+                                        {profile?.full_name || 'Instrutor'}
                                     </h4>
                                     <div className="flex items-center text-xs text-yellow-500 font-bold mt-1">
                                         <span className="material-symbols-outlined text-sm">
                                             star
                                         </span>
-                                        <span className="ml-1">4.9</span>
+                                        <span className="ml-1">{instructor.rating || '5.0'}</span>
                                         <span className="text-slate-400 font-normal ml-1">
                                             (120 aulas)
                                         </span>
@@ -62,12 +72,11 @@ export function ProfilePreview() {
                             </div>
                             {/* Badges Preview */}
                             <div className="flex flex-wrap gap-1.5">
-                                <span className="px-2 py-0.5 bg-instructor-primary/10 text-instructor-primary text-[10px] font-bold uppercase rounded border border-instructor-primary/20">
-                                    Psicólogo
-                                </span>
-                                <span className="px-2 py-0.5 bg-instructor-primary/10 text-instructor-primary text-[10px] font-bold uppercase rounded border border-instructor-primary/20">
-                                    Paciência
-                                </span>
+                                {instructor.superpowers?.slice(0, 3).map((power: string) => (
+                                    <span key={power} className="px-2 py-0.5 bg-instructor-primary/10 text-instructor-primary text-[10px] font-bold uppercase rounded border border-instructor-primary/20">
+                                        {power}
+                                    </span>
+                                ))}
                             </div>
                             {/* Gallery Preview */}
                             <div className="mt-2">
@@ -75,27 +84,18 @@ export function ProfilePreview() {
                                     Últimas Aprovações
                                 </p>
                                 <div className="flex gap-2 overflow-x-hidden">
-                                    <div
-                                        className="size-16 rounded bg-slate-800 bg-cover bg-center shrink-0"
-                                        style={{
-                                            backgroundImage:
-                                                "url('https://lh3.googleusercontent.com/aida-public/AB6AXuC5qTK5IJJqv_rA2WOc6bHfY59RK7JUMwFYuvnSuoanwFa_iIPNXikBkmrdLcD9coE11bHKMPy8PVVDzjmPH0EuUjljSoj_Ueuoqy7Z2O7ekharU4Yoox8x87nY1kcH69TIjOJt18Hb4FeKhdmff44hUFsx82a7HIlMGNJaP8LBdrXiXvfX5C4I0KCIzPc7BqLsrHZ6xT88gUk_dhzW6nTePuWW8Xeg_a9JKJeovk3W1s9FnTRDtRyd6zKTD6ZRnCVeH2iwkRHmeCe5')",
-                                        }}
-                                    ></div>
-                                    <div
-                                        className="size-16 rounded bg-slate-800 bg-cover bg-center shrink-0"
-                                        style={{
-                                            backgroundImage:
-                                                "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAlFjEK5DW521qkkNPHePvWHVXFR62ZW9uSnpFKI5KlhvAJantaPJyC17CIig9JKkL1dZcG5Ubh8ztd9QNUiGZGXNQcX0bIWAqZQiOPvdhoIug3qFo7MdG6l0wr-Mhdk31Aovtd5-HkRkUbXGzZWJaOXgTgAkcOY2cKD_9Ej2r4uMcsF_rP7eMnC7n9ud-cn1krfr2pEbcYPzeCaZAZh-6wAKoRTjmp4iOh5EsS8SngxdKlFQu4s0-L24j2rdwMsb_pM8jT43HM9xvo')",
-                                        }}
-                                    ></div>
-                                    <div
-                                        className="size-16 rounded bg-slate-800 bg-cover bg-center shrink-0"
-                                        style={{
-                                            backgroundImage:
-                                                "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBShfRh_KDu1cSUAF1yYNs-9L1LY_dFW1jqFQLc3J0wgl6VVvLZwZkt0Ie3oQhAerLs_nATGe7xciYX8__W9Z4dkg5VeymFaWDbfz4e6x8un6VtNjQYOr_JH446O2xRL0eZJMA5JUVjdxcOsHUf0abBWKzRxw8_g4lTWU22Byq12meyzHM7J-PYPnycIo_6R41gOqQuDdoDHWoK2mPCN0gAT8AJ3bxWnFs0QIrMw_WzoMlskqgR0CGP-nD8wiGg0y9ZqePiG5HtOXmY')",
-                                        }}
-                                    ></div>
+                                    {instructor.success_stories?.slice(0, 3).map((story: any) => (
+                                        <div
+                                            key={story.id}
+                                            className="size-16 rounded bg-slate-800 bg-cover bg-center shrink-0"
+                                            style={{
+                                                backgroundImage: `url('${story.photo_url}')`,
+                                            }}
+                                        ></div>
+                                    ))}
+                                    {(!instructor.success_stories || instructor.success_stories.length === 0) && (
+                                        <div className="text-xs text-slate-500 italic p-2">Sem fotos ainda</div>
+                                    )}
                                 </div>
                             </div>
                             {/* CTA */}

@@ -1,4 +1,25 @@
-export function ProfileHeader() {
+interface ProfileHeaderProps {
+    profile: {
+        full_name: string;
+        avatar_url: string;
+    };
+    instructor: {
+        bio: string;
+        video_url: string | null;
+        success_stories: any[];
+    };
+}
+
+export function ProfileHeader({ profile, instructor }: ProfileHeaderProps) {
+    // Basic Health Calculation
+    let healthScore = 20; // Base
+    if (profile?.avatar_url) healthScore += 20;
+    if (instructor?.bio && instructor.bio.length > 20) healthScore += 15;
+    if (instructor?.video_url) healthScore += 30;
+    if (instructor?.success_stories?.length > 0) healthScore += 15;
+
+    healthScore = Math.min(healthScore, 100);
+
     return (
         <div className="flex flex-col gap-4">
             <div className="flex justify-between items-end">
@@ -19,27 +40,35 @@ export function ProfileHeader() {
                             vital_signs
                         </span>
                         <span className="font-bold">
-                            Saúde do Perfil: <span className="text-instructor-primary">70%</span>
+                            Saúde do Perfil: <span className="text-instructor-primary">{healthScore}%</span>
                         </span>
                     </div>
-                    <span className="text-xs font-medium px-2 py-1 bg-instructor-primary/10 text-instructor-primary rounded-full animate-pulse">
-                        Quase lá!
-                    </span>
+                    {healthScore >= 80 ? (
+                        <span className="text-xs font-medium px-2 py-1 bg-green-500/10 text-green-500 rounded-full">
+                            Excelente!
+                        </span>
+                    ) : (
+                        <span className="text-xs font-medium px-2 py-1 bg-instructor-primary/10 text-instructor-primary rounded-full animate-pulse">
+                            Quase lá!
+                        </span>
+                    )}
                 </div>
                 {/* Gradient Progress Bar */}
                 <div className="h-3 w-full bg-slate-100 dark:bg-[#0d1a11] rounded-full overflow-hidden mb-2">
                     <div
-                        className="h-full rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-instructor-primary"
-                        style={{ width: "70%" }}
+                        className="h-full rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-instructor-primary transition-all duration-1000 ease-out"
+                        style={{ width: `${healthScore}%` }}
                     ></div>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm text-instructor-primary">
-                        trending_up
-                    </span>
-                    Adicione um vídeo para atrair{" "}
-                    <b className="text-slate-900 dark:text-white">3x mais alunos!</b>
-                </p>
+                {!instructor?.video_url && (
+                    <p className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm text-instructor-primary">
+                            trending_up
+                        </span>
+                        Adicione um vídeo para atrair{" "}
+                        <b className="text-slate-900 dark:text-white">3x mais alunos!</b>
+                    </p>
+                )}
             </div>
         </div>
     );
