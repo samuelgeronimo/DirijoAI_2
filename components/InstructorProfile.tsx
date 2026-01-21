@@ -96,8 +96,8 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
         // Generate slots from start_time to end_time
         // This is a simplified logic. Ideally, check existing bookings.
         const slots = [];
-        let startHour = parseInt(availability.start_time.split(':')[0]);
-        let endHour = parseInt(availability.end_time.split(':')[0]);
+        const startHour = parseInt(availability.start_time.split(':')[0]);
+        const endHour = parseInt(availability.end_time.split(':')[0]);
 
         for (let h = startHour; h < endHour; h++) {
             slots.push(`${h}:00`);
@@ -549,7 +549,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                                                 </div>
                                             </div>
                                             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                                "O Carlos é extremamente paciente. Eu tinha muito medo de trânsito pesado e hoje dirijo tranquilamente para o trabalho. Recomendo demais!"
+                                                &quot;O Carlos é extremamente paciente. Eu tinha muito medo de trânsito pesado e hoje dirijo tranquilamente para o trabalho. Recomendo demais!&quot;
                                             </p>
                                         </div>
                                         <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800">
@@ -568,7 +568,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                                                 </div>
                                             </div>
                                             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                                "Passei de primeira no exame! O foco dele na baliza foi o diferencial. Carro muito novo e fácil de dirigir."
+                                                &quot;Passei de primeira no exame! O foco dele na baliza foi o diferencial. Carro muito novo e fácil de dirigir.&quot;
                                             </p>
                                         </div>
                                     </div>

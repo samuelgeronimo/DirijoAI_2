@@ -47,12 +47,12 @@ export default function CheckoutPage() {
                 .single();
 
             if (data) {
-                // @ts-ignore - Supabase type mapping might be slightly off for the join, trusting the query
+                // @ts-expect-error - Supabase type mapping might be slightly off for the join, trusting the query
                 setInstructor(data);
 
                 // Determine base price (take the highest rate found or default)
                 if (data.instructor_availability && data.instructor_availability.length > 0) {
-                    const rates = data.instructor_availability.map((a: any) => a.hourly_rate_cents);
+                    const rates = data.instructor_availability.map((a: { hourly_rate_cents: number }) => a.hourly_rate_cents);
                     const maxRate = Math.max(...rates);
                     setBasePrice(maxRate / 100); // Convert cents to Real
                 }
