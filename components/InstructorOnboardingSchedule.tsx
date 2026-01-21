@@ -33,9 +33,23 @@ export default function InstructorOnboardingSchedule() {
 
     useEffect(() => {
         const supabase = createClient();
-        supabase.auth.getUser().then(({ data }) => {
+        supabase.auth.getUser().then(async ({ data }) => {
             if (data.user) {
                 setUser(data.user);
+
+                // Fetch Instructor City for Service City default
+                const { data: instructor } = await supabase
+                    .from('instructors')
+                    .select('city')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (instructor?.city) {
+                    // We could set a serviceCity state here if we had an input, 
+                    // or just store it in a ref/variable to use on save.
+                    // For now, let's just trust we can re-fetch or use it. 
+                    // Actually, simpler to just fetch it right before saving or assuming it's same.
+                }
             } else {
                 router.push("/");
             }
@@ -95,9 +109,12 @@ export default function InstructorOnboardingSchedule() {
             const availabilityData = schedule
                 .filter(day => day.active)
                 .map(day => {
-                    // Parse price string "85,00" to cents Integer 8500
+                    // Parse price string "85,00" (reais) to cents (integer)
+                    // Robust handling: "100" -> 10000, "100,00" -> 10000, "100,50" -> 10050
                     const priceString = day.price.replace('R$', '').trim();
-                    const priceCents = parseInt(priceString.replace(/\./g, '').replace(',', ''));
+                    // Remove thousands separator (.), replace decimal separator (,) with (.)
+                    const normalizedPrice = priceString.replace(/\./g, '').replace(',', '.');
+                    const priceCents = Math.round(parseFloat(normalizedPrice) * 100);
 
                     return {
                         instructor_id: user.id,
@@ -116,9 +133,16 @@ export default function InstructorOnboardingSchedule() {
             // 3. Update Instructor Metadata (Price Base) - Assuming we might have a price column later or JSONB
             // For now, let's just update the status to 'active' or 'pending_approval'
             // Also saving the radius if we had a column.
+            // 3. Update Instructor Metadata (Price Base, Service City, Phone)
+
+            // Fetch current address city to set as service_city
+            const { data: currentInstructor } = await supabase.from('instructors').select('city').eq('id', user.id).single();
+
             const { error: updateError } = await supabase.from('instructors').update({
-                status: 'pending_docs', // Set to pending_docs so they go to confirmation page
-                current_onboarding_step: 8
+                status: 'pending_docs',
+                current_onboarding_step: 8,
+                service_city: currentInstructor?.city, // Set service_city = resident city
+                phone: user.phone || user.user_metadata?.phone // Ensure phone is synced from Auth
             }).eq('id', user.id);
 
             if (updateError) throw updateError;

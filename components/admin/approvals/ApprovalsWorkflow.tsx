@@ -25,6 +25,14 @@ type Vehicle = {
     features: string[] | null;
 };
 
+type SuccessStory = {
+    id: string;
+    photo_url: string;
+    student_name: string;
+    badge: string;
+    created_at: string;
+};
+
 type InstructorWithDetails = {
     id: string;
     status: string;
@@ -47,6 +55,7 @@ type InstructorWithDetails = {
     zip_code: string | null;
     created_at: string;
     vehicles: Vehicle[];
+    success_stories: SuccessStory[];
     profiles: {
         full_name: string;
         avatar_url: string;
@@ -59,11 +68,19 @@ interface ApprovalsWorkflowProps {
     instructors: InstructorWithDetails[];
 }
 
+const BADGE_INFO: Record<string, { label: string, icon: string, color: string }> = {
+    'first_try': { label: 'Passou de 1ª', icon: 'check_circle', color: 'bg-green-100 text-green-700' },
+    'perfect_parking': { label: 'Baliza Perfeita', icon: 'local_parking', color: 'bg-blue-100 text-blue-700' },
+    'fear_lost': { label: 'Perdeu o Medo', icon: 'psychology', color: 'bg-purple-100 text-purple-700' },
+    '20_lessons': { label: '20 Aulas', icon: 'timer', color: 'bg-orange-100 text-orange-700' },
+    'default': { label: 'Conquista', icon: 'emoji_events', color: 'bg-slate-100 text-slate-700' }
+};
+
 export function ApprovalsWorkflow({ instructors: initialInstructors }: ApprovalsWorkflowProps) {
     const [instructors, setInstructors] = useState(initialInstructors);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'personal' | 'vehicle' | 'docs'>('personal');
+    const [activeTab, setActiveTab] = useState<'personal' | 'vehicle' | 'docs' | 'stories'>('personal');
 
     // State to override the main visualizer (e.g. when clicking a vehicle photo)
     const [overrideImage, setOverrideImage] = useState<{ url: string; type: string } | null>(null);
@@ -226,7 +243,13 @@ export function ApprovalsWorkflow({ instructors: initialInstructors }: Approvals
                             onClick={() => setActiveTab('docs')}
                             className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'docs' ? 'border-[#137fec] text-[#137fec]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                         >
-                            Docs ({currentInstructor.documents?.length || 0})
+                            Docs
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('stories')}
+                            className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'stories' ? 'border-[#137fec] text-[#137fec]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Histórico
                         </button>
                     </div>
                 </div>
@@ -385,6 +408,47 @@ export function ApprovalsWorkflow({ instructors: initialInstructors }: Approvals
                                 ))}
                                 {(!currentInstructor.documents || currentInstructor.documents.length === 0) && (
                                     <p className="text-slate-500 text-sm text-center py-4">Nenhum documento enviado.</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'stories' && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b pb-2 dark:border-slate-800 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-yellow-500">emoji_events</span>
+                                Histórico de Aprovação
+                            </h3>
+                            <div className="flex flex-col gap-3">
+                                {currentInstructor.success_stories && currentInstructor.success_stories.length > 0 ? (
+                                    currentInstructor.success_stories.map((story, idx) => {
+                                        const badgeData = BADGE_INFO[story.badge] || BADGE_INFO['default'];
+                                        return (
+                                            <div
+                                                key={story.id}
+                                                onClick={() => setOverrideImage({ url: story.photo_url, type: `Histórico: ${story.student_name}` })}
+                                                className="group flex gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1e2936] hover:border-[#137fec] hover:ring-1 hover:ring-[#137fec] transition-all cursor-pointer"
+                                            >
+                                                <div className="size-16 rounded-md overflow-hidden shrink-0 bg-slate-100">
+                                                    <img src={story.photo_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                </div>
+                                                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{story.student_name}</p>
+                                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded text-xs font-semibold w-fit ${badgeData.color}`}>
+                                                        <span className="material-symbols-outlined text-[14px]">{badgeData.icon}</span>
+                                                        {badgeData.label}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="text-center py-8">
+                                        <div className="size-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-2 text-slate-400">
+                                            <span className="material-symbols-outlined">hide_image</span>
+                                        </div>
+                                        <p className="text-sm text-slate-500">Nenhum histórico de aprovação enviado.</p>
+                                    </div>
                                 )}
                             </div>
                         </div>

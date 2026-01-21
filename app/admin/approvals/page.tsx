@@ -29,6 +29,7 @@ export default async function AdminApprovalsPage() {
             complement,
             neighborhood,
             vehicles(*),
+            success_stories(*),
             profiles: profiles!instructors_id_fkey(
                 full_name,
                 avatar_url,
@@ -43,6 +44,9 @@ export default async function AdminApprovalsPage() {
     console.log("Admin Approvals Debug:");
     console.log("Error:", error);
     console.log("Instructors Found:", rawInstructors?.length);
+    if (rawInstructors && rawInstructors.length > 0) {
+        console.log("Sample Instructor Success Stories:", JSON.stringify(rawInstructors[0].success_stories, null, 2));
+    }
     if (rawInstructors?.length === 0) {
         // Debug: try fetching without filters to see if any exist
         const { count } = await supabase.from('instructors').select('*', { count: 'exact', head: true });

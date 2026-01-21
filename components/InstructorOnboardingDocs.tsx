@@ -148,17 +148,30 @@ export default function InstructorOnboardingDocs() {
 
         setUploading(true);
         try {
+            // 0. Ensure Profile Exists (Self-healing)
+            const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
+            if (!profile) {
+                await supabase.from('profiles').insert({
+                    id: user.id,
+                    email: user.email,
+                    role: 'instructor',
+                    full_name: user.user_metadata?.full_name || 'Instrutor',
+                    avatar_url: user.user_metadata?.avatar_url
+                });
+            }
+
             const { error: updateError } = await supabase
                 .from('instructors')
-                .update({
+                .upsert({
+                    id: user.id,
                     cpf: cpf,
                     cnh_number: cnhNumber,
                     cnh_category: cnhCategory,
                     cnh_issue_state: cnhState,
                     detran_registry_number: cfi,
-                    current_onboarding_step: 4
-                })
-                .eq('id', user.id);
+                    current_onboarding_step: 4,
+                    status: 'pending_docs' // Ensure status is set for new records
+                }, { onConflict: 'id' });
 
             if (updateError) throw updateError;
 

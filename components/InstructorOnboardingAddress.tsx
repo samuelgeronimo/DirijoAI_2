@@ -82,9 +82,30 @@ export default function InstructorOnboardingAddress() {
         setLoading(true);
         const supabase = createClient();
 
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) return;
+
+        // 1. Ensure Profile Exists (Self-healing for broken triggers)
+        const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
+        if (!profile) {
+            console.log("Profile missing, creating one...");
+            const { error: profileError } = await supabase.from('profiles').insert({
+                id: user.id,
+                email: user.email,
+                role: 'instructor',
+                full_name: user.user_metadata?.full_name || 'Instrutor',
+                avatar_url: user.user_metadata?.avatar_url
+            });
+            if (profileError) {
+                console.error("Error creating missing profile:", profileError);
+                // Continue anyway, maybe it exists but RLS hid it (unlikely for Select) or race condition
+            }
+        }
+
         const { error } = await supabase
             .from('instructors')
-            .update({
+            .upsert({
+                id: user.id,
                 zip_code: formData.zip_code,
                 street: formData.street,
                 number: formData.number,
@@ -92,9 +113,9 @@ export default function InstructorOnboardingAddress() {
                 neighborhood: formData.neighborhood,
                 city: formData.city,
                 state: formData.state,
-                current_onboarding_step: 3 // Moving to Docs
-            })
-            .eq('id', (await supabase.auth.getUser()).data.user?.id);
+                current_onboarding_step: 3, // Moving to Docs
+                status: 'pending_docs'
+            }, { onConflict: 'id' });
 
         if (error) {
             alert("Erro ao salvar endereço: " + error.message);

@@ -133,11 +133,27 @@ export default function InstructorOnboardingProfile() {
             }
 
             // 3. Update Instructor Profile (Bio, Superpowers, Avatar)
-            const { error: instructorError } = await supabase.from('instructors').update({
+
+            // Ensure Profile Exists First
+            const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
+            if (!profile) {
+                await supabase.from('profiles').insert({
+                    id: user.id,
+                    email: user.email,
+                    role: 'instructor',
+                    full_name: user.user_metadata?.full_name || 'Instrutor',
+                    avatar_url: user.user_metadata?.avatar_url
+                });
+            }
+
+            // Ensure Instructor Exists (Upsert instead of Update)
+            const { error: instructorError } = await supabase.from('instructors').upsert({
+                id: user.id,
                 bio: bio,
                 superpowers: selectedSuperpowers,
-                current_onboarding_step: 5
-            }).eq('id', user.id);
+                current_onboarding_step: 5,
+                status: 'pending_docs'
+            });
 
             if (instructorError) throw instructorError;
 

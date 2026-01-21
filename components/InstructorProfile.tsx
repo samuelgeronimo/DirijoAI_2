@@ -52,7 +52,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
     const [instructor, setInstructor] = useState<Instructor | null>(null);
     const [loading, setLoading] = useState(true);
     const [reviews, setReviews] = useState<Review[]>([]);
-    const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
+    const [galleryPhotos, setGalleryPhotos] = useState<any[]>([]);
     const [currentUser, setCurrentUser] = useState<any>(null);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -179,39 +179,21 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                 setInstructor({ ...instructorData, profiles: profilesData } as unknown as Instructor);
             }
 
-            // Fetch Success Gallery Photos from Storage
-            const { data: galleryFiles } = await supabase
-                .storage
-                .from('success_gallery')
-                .list(instructorId, {
-                    limit: 10,
-                    offset: 0,
-                    sortBy: { column: 'created_at', order: 'desc' },
-                });
+            // Fetch Success Gallery Photos from Database (Metadata included)
+            const { data: galleryItems, error: galleryError } = await supabase
+                .from('success_stories')
+                .select('*')
+                .eq('instructor_id', instructorId)
+                .order('created_at', { ascending: false })
+                .limit(10);
 
-            if (galleryFiles && galleryFiles.length > 0) {
-                const urls = galleryFiles.map(file => {
-                    const { data } = supabase.storage
-                        .from('success_gallery')
-                        .getPublicUrl(`${instructorId}/${file.name}`);
-                    return data.publicUrl;
-                });
-                setGalleryPhotos(urls.filter(url => url !== null));
+            if (galleryItems) {
+                setGalleryPhotos(galleryItems);
             } else {
                 setGalleryPhotos([]);
             }
 
-            // Fetch Reviews (Mocking real join for now as reviews table might be empty or structure varies)
-            // Ideally: .from('reviews').select('*, students(profiles(full_name, avatar_url))').eq('instructor_id', instructorId)
-            // For now, let's try to fetch if table exists, otherwise use empty array or mocked if needed for demo
-
-            /* 
-            const { data: reviewsData, error: reviewsError } = await supabase
-                .from('reviews')
-                .select('id, rating, comment, created_at, student_id') // We need to match schema for student name
-                .eq('instructor_id', instructorId);
-            */
-            // Temporarily using empty array for reviews until we confirm structure/data 
+            // Fetch Reviews
             setReviews([]);
 
             setLoading(false);
@@ -221,6 +203,17 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
             fetchInstructorData();
         }
     }, [instructorId]);
+
+    /* Badge Helper */
+    const getBadgeInfo = (badgeCode: string) => {
+        const badges: Record<string, { label: string, icon: string, color: string }> = {
+            'first_try': { label: 'Passou de 1ª', icon: 'check_circle', color: 'bg-green-500/90' },
+            'perfect_parking': { label: 'Baliza Perfeita', icon: 'local_parking', color: 'bg-blue-500/90' },
+            'fear_lost': { label: 'Perdeu o Medo', icon: 'psychology', color: 'bg-purple-500/90' },
+            '20_lessons': { label: '20 Aulas', icon: 'timer', color: 'bg-orange-500/90' }
+        };
+        return badges[badgeCode] || badges['first_try'];
+    };
 
     if (loading) {
         return (
@@ -367,22 +360,25 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 {galleryPhotos.length > 0 ? (
                                     <>
-                                        {galleryPhotos.slice(0, 5).map((url, idx) => (
-                                            <div key={idx} className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md fade-in animate-in">
-                                                <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: `url("${url}")` }}></div>
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                                                {/* Mock data for these overlays since we only have the image url for now */}
-                                                <div className="absolute bottom-3 left-3 right-3 text-white">
-                                                    <p className="font-bold text-sm">Aluno Aprovado</p>
-                                                    <div className="inline-flex items-center gap-1 bg-green-500/90 px-2 py-0.5 rounded text-[10px] font-bold mt-1">
-                                                        <span className="material-symbols-outlined text-[12px]">check_circle</span> Conquista
+                                        {galleryPhotos.slice(0, 5).map((item: any, idx) => {
+                                            const badge = getBadgeInfo(item.badge);
+                                            return (
+                                                <div key={item.id || idx} className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md fade-in animate-in">
+                                                    <div className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110" style={{ backgroundImage: `url("${item.photo_url}")` }}></div>
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+
+                                                    <div className="absolute bottom-3 left-3 right-3 text-white">
+                                                        <p className="font-bold text-sm truncate" title={item.student_name}>{item.student_name}</p>
+                                                        <div className={`inline-flex items-center gap-1 ${badge.color} px-2 py-0.5 rounded text-[10px] font-bold mt-1 shadow-sm`}>
+                                                            <span className="material-symbols-outlined text-[12px]">{badge.icon}</span> {badge.label}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            )
+                                        })}
                                         {galleryPhotos.length > 5 && (
                                             <div className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md hidden lg:block">
-                                                <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
+                                                <div className="absolute inset-0 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                                                     <p className="text-[#137fec] font-bold text-sm">+{galleryPhotos.length - 5} outros</p>
                                                 </div>
                                             </div>
@@ -439,6 +435,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                                 )}
                             </div>
                         </div>
+
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
                             <div className="lg:col-span-2 flex flex-col gap-8">
                                 <div className="border-b border-slate-200 dark:border-slate-800">

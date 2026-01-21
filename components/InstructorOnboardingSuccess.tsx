@@ -5,11 +5,21 @@ import { useState, useEffect } from "react";
 import Link from 'next/link';
 
 interface DocumentFile {
+    id: string; // Unique temp ID for React keys
     file: File;
     progress: number;
     status: 'uploading' | 'completed' | 'error';
-    previewUrl?: string;
+    previewUrl: string;
+    studentName: string;
+    badge: string;
 }
+
+const BADGE_OPTIONS = [
+    { value: 'first_try', label: 'Passou de primeira', icon: 'check_circle', color: 'bg-green-100 text-green-700' },
+    { value: 'perfect_parking', label: 'Baliza perfeita', icon: 'local_parking', color: 'bg-blue-100 text-blue-700' },
+    { value: 'fear_lost', label: 'Perdeu o medo', icon: 'psychology', color: 'bg-purple-100 text-purple-700' },
+    { value: '20_lessons', label: '20 aulas', icon: 'timer', color: 'bg-orange-100 text-orange-700' },
+];
 
 export default function InstructorOnboardingSuccess() {
     const router = useRouter();
@@ -31,60 +41,84 @@ export default function InstructorOnboardingSuccess() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files).map(file => ({
+                id: Math.random().toString(36).substr(2, 9),
                 file,
                 progress: 0,
                 status: 'uploading' as const,
-                previewUrl: URL.createObjectURL(file)
+                previewUrl: URL.createObjectURL(file),
+                studentName: '',
+                badge: 'first_try' // Default
             }));
             setFiles(prev => [...prev, ...newFiles]);
 
-            // Simulate upload progress for UX (real upload happens on Verify/Continue)
+            // Simulate upload progress
             newFiles.forEach((fileObj, index) => {
                 setTimeout(() => {
-                    setFiles(prev => prev.map(f => f.file === fileObj.file ? { ...f, progress: 100, status: 'completed' } : f));
+                    setFiles(prev => prev.map(f => f.id === fileObj.id ? {
+                        ...f,
+                        progress: 100,
+                        status: 'completed',
+                        studentName: f.studentName,
+                        badge: f.badge
+                    } : f));
                 }, 800 + index * 300);
             });
         }
     };
 
-    const removeFile = (fileToRemove: File) => {
-        setFiles(prev => prev.filter(f => f.file !== fileToRemove));
+    const removeFile = (id: string) => {
+        setFiles(prev => prev.filter(f => f.id !== id));
     };
 
-    const uploadFiles = async () => {
-        if (!user) return;
-        const supabase = createClient();
-
-        const uploadPromises = files.map(async (docFile) => {
-            const fileExt = docFile.file.name.split('.').pop();
-            const fileName = `${user.id}/success_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('success_gallery')
-                .upload(fileName, docFile.file);
-
-            if (uploadError) throw uploadError;
-
-            // Here we could get publicUrl and save to a separate table 'instructor_gallery' if we had one.
-            // For now, just uploading to the bucket is enough to "save" them.
-            return fileName;
-        });
-
-        await Promise.all(uploadPromises);
+    const updateFileMetadata = (id: string, field: 'studentName' | 'badge', value: string) => {
+        setFiles(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
     };
 
     const handleContinue = async () => {
         if (!user) return;
+
+        // Validate Data
+        const missingNames = files.some(f => !f.studentName.trim());
+        if (missingNames) {
+            alert("Por favor, preencha o nome do aluno em todas as fotos.");
+            return;
+        }
+
         setLoading(true);
         const supabase = createClient();
 
         try {
-            // 1. Upload files
+            // 1. Upload files and Insert Records
             if (files.length > 0) {
-                await uploadFiles();
+                const uploadPromises = files.map(async (docFile) => {
+                    const fileExt = docFile.file.name.split('.').pop();
+                    const fileName = `${user.id}/success_${Date.now()}_${docFile.id}.${fileExt}`;
+
+                    // Upload Image
+                    const { error: uploadError } = await supabase.storage
+                        .from('success_gallery')
+                        .upload(fileName, docFile.file);
+
+                    if (uploadError) throw uploadError;
+
+                    const { data: publicUrlData } = supabase.storage
+                        .from('success_gallery')
+                        .getPublicUrl(fileName);
+
+                    // Insert Record
+                    const { error: dbError } = await supabase.from('success_stories').insert({
+                        instructor_id: user.id,
+                        photo_url: publicUrlData.publicUrl,
+                        student_name: docFile.studentName,
+                        badge: docFile.badge
+                    });
+                    if (dbError) throw dbError;
+                });
+
+                await Promise.all(uploadPromises);
             }
 
-            // 2. Save progress to Step 6
+            // 2. Save progress to Step 6 (Schedule)
             const { error } = await supabase
                 .from('instructors')
                 .update({ current_onboarding_step: 7 })
@@ -96,6 +130,7 @@ export default function InstructorOnboardingSuccess() {
         } catch (error: any) {
             console.error("Error saving progress:", error);
             alert("Erro ao salvar dados: " + error.message);
+        } finally {
             setLoading(false);
         }
     };
@@ -110,7 +145,6 @@ export default function InstructorOnboardingSuccess() {
                     </div>
                     <h2 className="text-lg font-bold leading-tight tracking-[-0.015em]">Onboard Instrutores</h2>
                 </div>
-                {/* ... Header Right with Avatar placeholder ... */}
             </header>
 
             <div className="layout-container flex h-full grow flex-col">
@@ -133,7 +167,7 @@ export default function InstructorOnboardingSuccess() {
                                 Seu Histórico de Aprovação
                             </h1>
                             <p className="text-[#4c739a] dark:text-slate-400 text-lg font-normal leading-relaxed max-w-2xl">
-                                Mostre suas conquistas! Adicione fotos de ex-alunos com a CNH para ganhar a confiança de novos clientes.
+                                Adicione fotos de ex-alunos e celebre suas conquistas. Identifique o aluno e o marco alcançado.
                             </p>
                         </div>
 
@@ -182,26 +216,62 @@ export default function InstructorOnboardingSuccess() {
                                 </div>
                             )}
 
-                            {/* Preview Grid */}
+                            {/* Files Editor List */}
                             {files.length > 0 && (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 animate-in fade-in duration-500">
-                                    {files.map((fileObj, index) => (
-                                        <div key={index} className="relative group rounded-xl overflow-hidden aspect-square border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800">
-                                            <img src={fileObj.previewUrl} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt="Preview" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <button
-                                                    onClick={() => removeFile(fileObj.file)}
-                                                    className="p-2 bg-red-500/80 hover:bg-red-600 text-white rounded-full transition-transform hover:scale-110"
-                                                    title="Remover"
-                                                >
-                                                    <span className="material-symbols-outlined text-lg">delete</span>
-                                                </button>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
+                                    {files.map((fileObj) => (
+                                        <div key={fileObj.id} className="flex flex-col gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm relative group">
+                                            <button
+                                                onClick={() => removeFile(fileObj.id)}
+                                                className="absolute top-2 right-2 p-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors z-10"
+                                                title="Remover"
+                                            >
+                                                <span className="material-symbols-outlined text-base">close</span>
+                                            </button>
+
+                                            <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900">
+                                                <img src={fileObj.previewUrl} className="w-full h-full object-cover" alt="Preview" />
+                                                {fileObj.status === 'uploading' && (
+                                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-200">
+                                                        <div className="h-full bg-green-500 animate-pulse w-full"></div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            {fileObj.status === 'uploading' && (
-                                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-200">
-                                                    <div className="h-full bg-green-500 animate-pulse w-full"></div>
+
+                                            <div className="flex flex-col gap-3">
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 block">Nome do Aluno</label>
+                                                    <input
+                                                        type="text"
+                                                        value={fileObj.studentName}
+                                                        onChange={(e) => updateFileMetadata(fileObj.id, 'studentName', e.target.value)}
+                                                        placeholder="Ex: Ana Souza"
+                                                        className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none"
+                                                    />
                                                 </div>
-                                            )}
+
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1 block">Conquista (Badge)</label>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {BADGE_OPTIONS.map(opt => (
+                                                            <div
+                                                                key={opt.value}
+                                                                onClick={() => updateFileMetadata(fileObj.id, 'badge', opt.value)}
+                                                                className={`
+                                                                    cursor-pointer p-2 rounded-lg border text-xs font-medium transition-all flex flex-col items-center gap-1 text-center select-none
+                                                                    ${fileObj.badge === opt.value
+                                                                        ? 'border-[#137fec] bg-[#137fec]/5 text-[#137fec]'
+                                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400'
+                                                                    }
+                                                                `}
+                                                            >
+                                                                <span className="material-symbols-outlined text-lg">{opt.icon}</span>
+                                                                {opt.label}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

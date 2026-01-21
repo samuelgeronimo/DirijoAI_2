@@ -62,7 +62,22 @@ export default function InstructorLandingPage() {
                 }
             }
 
-            // 2. Create Instructor Record (if not created by trigger)
+            // 2. Ensure Profile Exists (Self-healing before Instructor creation)
+            if (authData.user) {
+                const { data: profile } = await supabase.from('profiles').select('id').eq('id', authData.user.id).single();
+                if (!profile) {
+                    // Manually create profile if trigger failed
+                    await supabase.from('profiles').insert({
+                        id: authData.user.id,
+                        email: formData.email,
+                        role: 'instructor',
+                        full_name: formData.fullName,
+                        avatar_url: authData.user.user_metadata?.avatar_url
+                    });
+                }
+            }
+
+            // 3. Create Instructor Record (Step 1 Data)
             const { error: profileError } = await supabase
                 .from('instructors')
                 .upsert({
@@ -71,14 +86,15 @@ export default function InstructorLandingPage() {
                     service_city: formData.service_city,
                     status: 'pending_docs',
                     balance_cents: 0,
-                    current_onboarding_step: 2
+                    current_onboarding_step: 2,
+                    accepted_terms: true
                 });
 
             if (profileError) {
                 console.error("Error creating instructor profile:", profileError);
             }
 
-            // 3. Redirect to Step 2 (Address)
+            // 4. Redirect to Step 2 (Address)
             router.push('/instructor/onboarding/address');
         }
     };
