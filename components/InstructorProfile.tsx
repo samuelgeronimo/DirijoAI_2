@@ -39,6 +39,7 @@ interface Instructor {
     superpowers: string[];
     video_url: string | null;
     service_city: string;
+    service_mode: string | null;
     profiles: {
         full_name: string;
         avatar_url: string;
@@ -205,6 +206,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                     superpowers,
                     video_url,
                     service_city,
+                    service_mode,
                     profiles!instructors_id_fkey(full_name, avatar_url),
                     vehicles(model, brand, year, features, photo_urls),
                     instructor_availability(day_of_week, start_time, end_time, hourly_rate_cents)
@@ -356,6 +358,13 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                                         <span className="flex items-center gap-1 text-xs font-bold text-slate-500">
                                             <span className="material-symbols-outlined text-sm">location_on</span> {instructor.service_city}
                                         </span>
+                                        {instructor.service_mode && (
+                                            <span className="flex items-center gap-1 text-xs font-bold text-slate-500 ml-2 border-l pl-2 border-slate-300 dark:border-slate-700">
+                                                <span className="material-symbols-outlined text-sm">commute</span>
+                                                {instructor.service_mode === 'student_home' ? 'Busca em Casa' :
+                                                    instructor.service_mode === 'meeting_point' ? 'Ponto de Encontro' : 'Atendimento Flexível'}
+                                            </span>
+                                        )}
                                     </div>
                                     <h1 className="text-[#0d141b] dark:text-white text-3xl md:text-4xl font-bold tracking-tight">{profile.full_name}</h1>
                                     <div className="flex items-center gap-2">

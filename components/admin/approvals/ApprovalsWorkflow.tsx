@@ -46,6 +46,7 @@ type InstructorWithDetails = {
     cnh_issue_state: string;
     detran_registry_number: string; // CFI
     service_city: string | null;
+    service_mode: string | null;
     city: string | null;
     state: string | null;
     neighborhood: string | null;
@@ -267,6 +268,15 @@ export function ApprovalsWorkflow({ instructors: initialInstructors }: Approvals
                                 <Field label="Categoria" value={currentInstructor.cnh_category} />
                                 <Field label="Estado Emissor" value={currentInstructor.cnh_issue_state} />
                                 <Field label="Cidade de Atuação" value={currentInstructor.service_city} />
+                                <Field
+                                    label="Modo de Atendimento"
+                                    value={
+                                        currentInstructor.service_mode === 'student_home' ? 'Busca em Casa' :
+                                            currentInstructor.service_mode === 'meeting_point' ? 'Ponto de Encontro' :
+                                                currentInstructor.service_mode === 'both' ? 'Ambos (Flexível)' :
+                                                    '--'
+                                    }
+                                />
                                 <div className="col-span-2">
                                     <Field label="Data de Cadastro" value={new Date(currentInstructor.created_at).toLocaleString('pt-BR')} />
                                 </div>

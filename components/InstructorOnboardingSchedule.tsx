@@ -20,6 +20,7 @@ export default function InstructorOnboardingSchedule() {
     const [user, setUser] = useState<any>(null);
     const [basePrice, setBasePrice] = useState("85,00");
     const [radius, setRadius] = useState(15);
+    const [serviceMode, setServiceMode] = useState<string>('student_home');
 
     const [schedule, setSchedule] = useState<DaySchedule[]>([
         { day: 1, label: "Segunda-feira", active: true, start: "08:00", end: "18:00", price: "85,00" },
@@ -37,12 +38,16 @@ export default function InstructorOnboardingSchedule() {
             if (data.user) {
                 setUser(data.user);
 
-                // Fetch Instructor City for Service City default
+                // Fetch Instructor City for Service City default and existing Service Mode
                 const { data: instructor } = await supabase
                     .from('instructors')
-                    .select('city')
+                    .select('city, service_mode')
                     .eq('id', data.user.id)
                     .single();
+
+                if (instructor?.service_mode) {
+                    setServiceMode(instructor.service_mode);
+                }
 
                 if (instructor?.city) {
                     // We could set a serviceCity state here if we had an input, 
@@ -142,6 +147,7 @@ export default function InstructorOnboardingSchedule() {
                 status: 'pending_docs',
                 current_onboarding_step: 8,
                 service_city: currentInstructor?.city, // Set service_city = resident city
+                service_mode: serviceMode,
                 phone: user.phone || user.user_metadata?.phone // Ensure phone is synced from Auth
             }).eq('id', user.id);
 
@@ -283,6 +289,35 @@ export default function InstructorOnboardingSchedule() {
                                                 />
                                             </div>
                                             <p className="text-slate-400 mt-2 text-xs">Valor médio na sua região: R$ 80 - R$ 100</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-5 rounded-xl border border-[#e7edf3] dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+                                        <div className="flex items-center gap-2 text-[#0d141b] dark:text-white">
+                                            <span className="material-symbols-outlined text-[#137fec]">commute</span>
+                                            <h3 className="text-lg font-bold">Modo de Atendimento</h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {[
+                                                { id: 'student_home', label: 'Vou até o aluno', icon: 'home_pin', desc: 'Busco em casa' },
+                                                { id: 'meeting_point', label: 'Ponto de Encontro', icon: 'location_on', desc: 'Lugar marcado' },
+                                                { id: 'both', label: 'Ambos', icon: 'alt_route', desc: 'Flexível' }
+                                            ].map(option => (
+                                                <div
+                                                    key={option.id}
+                                                    onClick={() => setServiceMode(option.id)}
+                                                    className={`cursor-pointer rounded-lg border p-4 flex flex-col items-center gap-2 transition-all ${serviceMode === option.id
+                                                        ? 'border-[#137fec] bg-[#137fec]/10 text-[#137fec]'
+                                                        : 'border-slate-200 dark:border-slate-700 hover:border-[#137fec]/50 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                        }`}
+                                                >
+                                                    <span className="material-symbols-outlined text-3xl">{option.icon}</span>
+                                                    <div className="text-center">
+                                                        <p className="font-bold text-sm">{option.label}</p>
+                                                        <p className="text-xs opacity-80">{option.desc}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
 

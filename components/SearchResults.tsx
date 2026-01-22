@@ -38,6 +38,10 @@ export default function SearchResults() {
     const [selectedTime, setSelectedTime] = useState<'all' | 'morning' | 'afternoon' | 'night'>('all');
     const [priceRange, setPriceRange] = useState<[number, number]>([0, 200]);
     const [minRating, setMinRating] = useState(0);
+    const [serviceModeFilter, setServiceModeFilter] = useState<string[]>([]);
+    const [vehicleFeaturesFilter, setVehicleFeaturesFilter] = useState<string[]>([]);
+
+    const VEHICLE_FEATURES = ['❄️ Ar Condicionado', '💪 Direção Elétrica', '🛑 Freio Duplo', '📹 Câmera de Ré', '⚙️ Câmbio Automático', '🔌 Carregador USB', '⚡ Carregador USB-C'];
 
     // Fetch Data
     useEffect(() => {
@@ -53,6 +57,7 @@ export default function SearchResults() {
                     bio,
                     city,
                     service_city,
+                    service_mode,
                     state,
                     video_url,
                     superpowers,
@@ -106,6 +111,27 @@ export default function SearchResults() {
             return price >= priceRange[0] && price <= priceRange[1];
         });
 
+        // SERVICE MODE FILTER
+        if (serviceModeFilter.length > 0) {
+            result = result.filter(inst => {
+                // If instructor has no mode set, filter them out? or defaulting? Defaulting to exclude.
+                if (!inst.service_mode) return false;
+                return serviceModeFilter.some(filter =>
+                    inst.service_mode === filter || inst.service_mode === 'both'
+                );
+            });
+        }
+
+        // VEHICLE FEATURES FILTER
+        if (vehicleFeaturesFilter.length > 0) {
+            result = result.filter(inst => {
+                // Check if ANY of the instructor's vehicles has ALL selected features
+                return inst.vehicles?.some((vehicle: any) =>
+                    vehicleFeaturesFilter.every((feature) => vehicle.features?.includes(feature))
+                );
+            });
+        }
+
         // 2. Sorting
         // Formula: score = (HasVideo ? 20 : 0) + (HasAvailability ? 10 : 0) + Rating
         result.sort((a, b) => {
@@ -127,7 +153,7 @@ export default function SearchResults() {
         });
 
         return result;
-    }, [instructors, fearOfDriving, selectedTime, minRating, priceRange]);
+    }, [instructors, fearOfDriving, selectedTime, minRating, priceRange, serviceModeFilter, vehicleFeaturesFilter]);
 
     const hasResults = sortedAndFilteredInstructors.length > 0;
 
@@ -215,6 +241,29 @@ export default function SearchResults() {
 
                                 <div className="h-px bg-slate-100 dark:bg-slate-800 my-4"></div>
 
+                                {/* Rating Filter */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Avaliação Mínima</h4>
+                                    <div className="flex flex-col gap-2">
+                                        {[0, 4, 4.5, 4.8].map((rating) => (
+                                            <label key={rating} className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="ratingFilter"
+                                                    checked={minRating === rating}
+                                                    onChange={() => setMinRating(rating)}
+                                                    className="text-[#137fec] focus:ring-[#137fec]"
+                                                />
+                                                <span className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                                                    {rating === 0 ? "Qualquer nota" : <>{rating}+ <span className="material-symbols-outlined text-amber-400 text-sm">star</span></>}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-4"></div>
+
                                 {/* Time Filter */}
                                 <div className="mb-6">
                                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Horário</h4>
@@ -234,29 +283,6 @@ export default function SearchResults() {
                                                     className="text-[#137fec] focus:ring-[#137fec]"
                                                 />
                                                 <span className="text-sm text-slate-600 dark:text-slate-300">{time.label}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-4"></div>
-
-                                {/* Rating Filter */}
-                                <div className="mb-6">
-                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Avaliação Mínima</h4>
-                                    <div className="flex flex-col gap-2">
-                                        {[0, 4, 4.5, 4.8].map((rating) => (
-                                            <label key={rating} className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    name="ratingFilter"
-                                                    checked={minRating === rating}
-                                                    onChange={() => setMinRating(rating)}
-                                                    className="text-[#137fec] focus:ring-[#137fec]"
-                                                />
-                                                <span className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                                                    {rating === 0 ? "Qualquer nota" : <>{rating}+ <span className="material-symbols-outlined text-amber-400 text-sm">star</span></>}
-                                                </span>
                                             </label>
                                         ))}
                                     </div>
@@ -294,6 +320,61 @@ export default function SearchResults() {
                                     </div>
                                 </div>
 
+                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-4"></div>
+
+                                {/* Service Mode Filter */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Modo de Atendimento</h4>
+                                    <div className="flex flex-col gap-2">
+                                        {[
+                                            { id: 'student_home', label: 'Vou até o aluno' },
+                                            { id: 'meeting_point', label: 'Ponto de Encontro' }
+                                        ].map((mode) => (
+                                            <label key={mode.id} className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={serviceModeFilter.includes(mode.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setServiceModeFilter([...serviceModeFilter, mode.id]);
+                                                        } else {
+                                                            setServiceModeFilter(serviceModeFilter.filter(id => id !== mode.id));
+                                                        }
+                                                    }}
+                                                    className="rounded border-slate-300 text-[#137fec] focus:ring-[#137fec] dark:border-slate-700 dark:bg-slate-800"
+                                                />
+                                                <span className="text-sm text-slate-600 dark:text-slate-300">{mode.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="h-px bg-slate-100 dark:bg-slate-800 my-4"></div>
+
+                                {/* Vehicle Features Filter */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Conveniências do Veículo</h4>
+                                    <div className="flex flex-col gap-2">
+                                        {VEHICLE_FEATURES.map((feature) => (
+                                            <label key={feature} className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={vehicleFeaturesFilter.includes(feature)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setVehicleFeaturesFilter([...vehicleFeaturesFilter, feature]);
+                                                        } else {
+                                                            setVehicleFeaturesFilter(vehicleFeaturesFilter.filter(f => f !== feature));
+                                                        }
+                                                    }}
+                                                    className="rounded border-slate-300 text-[#137fec] focus:ring-[#137fec] dark:border-slate-700 dark:bg-slate-800"
+                                                />
+                                                <span className="text-sm text-slate-600 dark:text-slate-300">{feature}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
                             </div>
                         </aside>
 
@@ -313,6 +394,8 @@ export default function SearchResults() {
                                             setSelectedTime('all');
                                             setMinRating(0);
                                             setPriceRange([0, 200]);
+                                            setServiceModeFilter([]);
+                                            setVehicleFeaturesFilter([]);
                                         }}
                                         className="text-sm text-[#137fec] font-medium hover:underline bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full"
                                     >
@@ -453,7 +536,6 @@ export default function SearchResults() {
                     </div>
                 )}
             </div>
-
             {/* Footer */}
             <footer className="bg-slate-900 py-12 text-slate-400 border-t border-slate-800 mt-auto">
                 <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -471,6 +553,6 @@ export default function SearchResults() {
                     <p className="text-xs">© 2024 Dirijo Tecnologia Ltda.</p>
                 </div>
             </footer>
-        </div>
+        </div >
     );
 }

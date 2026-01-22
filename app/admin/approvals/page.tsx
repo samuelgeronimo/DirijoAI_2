@@ -21,6 +21,7 @@ export default async function AdminApprovalsPage() {
             superpowers,
             video_url,
             service_city,
+            service_mode,
             city,
             state,
             zip_code,

@@ -134,26 +134,32 @@ export default function InstructorLandingPage() {
                                     <span>Credenciamento Oficial</span>
                                 </div>
                                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight text-slate-900 dark:text-white">
-                                    Transforme seu carro em uma máquina de <br />
-                                    <span className="text-[#137fec]">liberdade e lucro.</span>
+                                    Fature <span className="text-[#137fec]">R$ 2.400/semana</span> com seu Carro
+                                    <span className="block text-2xl md:text-3xl mt-4 font-bold text-slate-600 dark:text-slate-300">
+                                        (Mesmo que você nunca tenha captado um aluno sozinho).
+                                    </span>
                                 </h1>
-                                <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
-                                    Pare de ser refém das taxas das autoescolas. O guia que você precisava para gerenciar sua carreira chegou.
+                                <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl font-medium border-l-4 border-[#137fec] pl-4 bg-blue-50 dark:bg-blue-900/20 py-2 rounded-r-lg">
+                                    <span className="font-bold text-[#137fec]">GARANTIA DE RISCO ZERO:</span> Nós garantimos que você terá seu primeiro aluno pago em 7 dias ou nós pagamos R$ 100 pelo seu tempo de cadastro.
                                 </p>
                             </div>
-                            <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-xl md:max-w-md bg-slate-200 dark:bg-slate-800 group">
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10 flex flex-col justify-end p-6">
-                                    <p className="text-white font-bold text-lg">Ricardo Silva</p>
-                                    <div className="flex items-center gap-1 text-yellow-400">
-                                        <span className="material-symbols-outlined text-[18px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[18px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[18px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[18px] fill-current">star</span>
-                                        <span className="material-symbols-outlined text-[18px] fill-current">star</span>
-                                        <span className="text-white text-sm ml-1">5.0 (120+ alunos)</span>
+                            <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl md:max-w-md bg-black group cursor-pointer border-4 border-white dark:border-slate-800">
+                                <div className="absolute inset-0 flex items-center justify-center z-20">
+                                    <div className="w-20 h-20 bg-[#137fec] rounded-full flex items-center justify-center pl-1 shadow-lg shadow-blue-500/50 group-hover:scale-110 transition-transform duration-300">
+                                        <span className="material-symbols-outlined text-[40px] text-white">play_arrow</span>
                                     </div>
                                 </div>
-                                <img alt="Driving instructor smiling in a car with a student during a lesson" className="object-cover w-full h-full transform transition-transform duration-700 group-hover:scale-105" data-alt="Driving instructor smiling in a car with a student during a lesson" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAk28NCRzQAT345YE-o1Ypo2i7eS8Y4Zq4KGt7FMSuv2wDEHLHqT2QnqP7JmN3gCDB6IDRZAIcMm2VzvjE0iE3GfFCTC_34_WBdnA-34a1RGz0DM2QnRK940TvYOcGxPjjrXl1aATO5M5-UQUj6DlXuJjrlgbqqU0-Ey4mo6DhJokIGANNl5ll2j40ebyk_wXckr4BE_U55X8UjN-w_PrQ9dJRyVM_YAvqvqj83Bqql82sESViDj3gtahPRfv2QntXE4NjndTeF0lTo" />
+                                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors z-10"></div>
+                                <img
+                                    alt="Thumbnail do vídeo explicativo"
+                                    className="object-cover w-full h-full opacity-60"
+                                    src="https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?q=80&w=2070&auto=format&fit=crop"
+                                />
+                                <div className="absolute bottom-4 left-4 right-4 z-20">
+                                    <p className="text-white font-bold text-sm bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full inline-block">
+                                        🎬 Veja como o Ricardo triplicou a renda dele
+                                    </p>
+                                </div>
                             </div>
                         </div>
                         <div className="w-full max-w-md mx-auto lg:ml-auto">
@@ -288,7 +294,159 @@ export default function InstructorLandingPage() {
                 </section>
                 <section className="w-full bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800">
                     <div className="px-4 py-16 md:px-10 max-w-[1280px] mx-auto">
-                        <div className="mb-12 text-center md:text-left">
+
+                        {/* Como Funciona (Donald Miller Plan) */}
+                        <div className="mb-20">
+                            <div className="text-center mb-12">
+                                <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+                                    Sua carreira está no banco do passageiro? <br />
+                                    <span className="text-[#137fec]">Assuma a direção em 3 passos.</span>
+                                </h2>
+                                <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-lg">
+                                    Elimine a confusão. Veja exatamente como você vai sair do zero para a sua primeira venda.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+                                {/* Connector Line (Desktop) */}
+                                <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-slate-200 dark:bg-slate-700 -z-10"></div>
+
+                                {/* Step 1 */}
+                                <div className="flex flex-col items-center text-center group">
+                                    <div className="w-24 h-24 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 shadow-xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-[#137fec] transition-all duration-300 relative">
+                                        <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-[#137fec] text-white flex items-center justify-center font-bold border-4 border-white dark:border-slate-900">1</div>
+                                        <span className="text-4xl">📝</span>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">O Cadastro (Sem Compromisso)</h3>
+                                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed px-4">
+                                        Preencha seu perfil em 2 minutos. Não pedimos cartão de crédito nem fidelidade.
+                                    </p>
+                                </div>
+
+                                {/* Step 2 */}
+                                <div className="flex flex-col items-center text-center group">
+                                    <div className="w-24 h-24 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 shadow-xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-[#137fec] transition-all duration-300 relative">
+                                        <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-[#137fec] text-white flex items-center justify-center font-bold border-4 border-white dark:border-slate-900">2</div>
+                                        <span className="text-4xl">🛡️</span>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">A Validação (Autoridade)</h3>
+                                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed px-4">
+                                        Nossa equipe valida suas credenciais (CFC/DETRAN) para garantir que você é um profissional de elite.
+                                    </p>
+                                </div>
+
+                                {/* Step 3 */}
+                                <div className="flex flex-col items-center text-center group">
+                                    <div className="w-24 h-24 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 shadow-xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-[#137fec] transition-all duration-300 relative">
+                                        <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-[#137fec] text-white flex items-center justify-center font-bold border-4 border-white dark:border-slate-900">3</div>
+                                        <span className="text-4xl">💰</span>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">A Liberdade (Sucesso)</h3>
+                                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed px-4">
+                                        Abra sua agenda, defina seu preço e receba notificações de alunos prontos para pagar.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Social Proof / Prints Section (GaryVee/Sabri Style) */}
+                        <div className="mt-24 pt-16 border-t border-slate-200 dark:border-slate-800">
+                            <div className="text-center mb-12">
+                                <span className="inline-block py-1 px-3 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-bold uppercase tracking-wider mb-4">
+                                    Resultados Reais
+                                </span>
+                                <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+                                    Não acredite em nós. <br />
+                                    <span className="text-slate-500 dark:text-slate-400">Acredite no PIX caindo na conta deles.</span>
+                                </h2>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {/* Print 1 */}
+                                <div className="bg-[#e5ddd5] dark:bg-[#0b141a] p-4 rounded-xl relative border-[6px] border-slate-900 dark:border-slate-700 shadow-2xl">
+                                    {/* Mockup notch */}
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-4 bg-slate-900 dark:bg-slate-700 rounded-b-xl z-10"></div>
+                                    <div className="bg-white dark:bg-[#111b21] rounded-lg h-full overflow-hidden flex flex-col">
+                                        {/* Header */}
+                                        <div className="bg-[#008069] p-3 flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-slate-300 rounded-full"></div>
+                                            <p className="text-white font-bold text-sm">Instrutor Carlos</p>
+                                        </div>
+                                        {/* Body */}
+                                        <div className="flex-1 p-4 flex flex-col gap-3 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-opacity-10">
+                                            <div className="self-start bg-white dark:bg-[#202c33] p-2 rounded-lg rounded-tl-none shadow-sm max-w-[85%]">
+                                                <p className="text-xs text-slate-800 dark:text-slate-100">Cara, o app tá bombando! Só hoje peguei 3 alunos novos.</p>
+                                                <span className="text-[10px] text-slate-400 block text-right">10:42</span>
+                                            </div>
+                                            <div className="self-end bg-[#d9fdd3] dark:bg-[#005c4b] p-2 rounded-lg rounded-tr-none shadow-sm max-w-[85%]">
+                                                <p className="text-xs text-slate-800 dark:text-slate-100">Boa demais Carlos! 🚀 Quanto deu a semana?</p>
+                                                <span className="text-[10px] text-slate-500 dark:text-slate-300 block text-right">10:45</span>
+                                            </div>
+                                            <div className="self-start bg-white dark:bg-[#202c33] p-2 rounded-lg rounded-tl-none shadow-sm max-w-[85%]">
+                                                <p className="text-xs text-slate-800 dark:text-slate-100">Fechei R$ 2.850 limpo. Nunca tirei isso na autoescola em 1 mês!</p>
+                                                <span className="text-[10px] text-slate-400 block text-right">10:46</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Print 2 */}
+                                <div className="bg-[#e5ddd5] dark:bg-[#0b141a] p-4 rounded-xl relative border-[6px] border-slate-900 dark:border-slate-700 shadow-2xl hidden md:block">
+                                    {/* Mockup notch */}
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-4 bg-slate-900 dark:bg-slate-700 rounded-b-xl z-10"></div>
+                                    <div className="bg-white dark:bg-[#111b21] rounded-lg h-full overflow-hidden flex flex-col">
+                                        {/* Header */}
+                                        <div className="bg-[#008069] p-3 flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-slate-300 rounded-full"></div>
+                                            <p className="text-white font-bold text-sm">Mariana Instrutora</p>
+                                        </div>
+                                        {/* Body */}
+                                        <div className="flex-1 p-4 flex flex-col gap-3 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-opacity-10">
+                                            <div className="self-start bg-white dark:bg-[#202c33] p-2 rounded-lg rounded-tl-none shadow-sm max-w-[85%]">
+                                                <p className="text-xs text-slate-800 dark:text-slate-100">Oi equipe! Só pra avisar que liberei mais horários na agenda.</p>
+                                                <span className="text-[10px] text-slate-400 block text-right">14:20</span>
+                                            </div>
+                                            <div className="self-start bg-white dark:bg-[#202c33] p-2 rounded-lg rounded-tl-none shadow-sm max-w-[85%]">
+                                                <p className="text-xs text-slate-800 dark:text-slate-100">A procura tá gigante aqui na Zona Sul. Vocês fazem algum tráfego específico?</p>
+                                                <span className="text-[10px] text-slate-400 block text-right">14:21</span>
+                                            </div>
+                                            <div className="self-end bg-[#d9fdd3] dark:bg-[#005c4b] p-2 rounded-lg rounded-tr-none shadow-sm max-w-[85%]">
+                                                <p className="text-xs text-slate-800 dark:text-slate-100">Mariana, é o algoritmo! A gente conecta alunos vizinhos a você. 😉</p>
+                                                <span className="text-[10px] text-slate-500 dark:text-slate-300 block text-right">14:25</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Print 3 */}
+                                <div className="bg-[#e5ddd5] dark:bg-[#0b141a] p-4 rounded-xl relative border-[6px] border-slate-900 dark:border-slate-700 shadow-2xl hidden lg:block">
+                                    {/* Mockup notch */}
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-4 bg-slate-900 dark:bg-slate-700 rounded-b-xl z-10"></div>
+                                    <div className="bg-white dark:bg-[#111b21] rounded-lg h-full overflow-hidden flex flex-col">
+                                        {/* Header */}
+                                        <div className="bg-[#008069] p-3 flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-slate-300 rounded-full"></div>
+                                            <p className="text-white font-bold text-sm">Grupo VIP Instrutores</p>
+                                        </div>
+                                        {/* Body */}
+                                        <div className="flex-1 p-4 flex flex-col gap-3 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-opacity-10">
+                                            <div className="self-start bg-white dark:bg-[#202c33] p-2 rounded-lg rounded-tl-none shadow-sm max-w-[85%]">
+                                                <span className="text-[10px] text-orange-500 font-bold mb-1 block">Roberto</span>
+                                                <p className="text-xs text-slate-800 dark:text-slate-100">Alguém aí já usou o recurso de antecipação de recebíveis?</p>
+                                                <span className="text-[10px] text-slate-400 block text-right">09:12</span>
+                                            </div>
+                                            <div className="self-start bg-white dark:bg-[#202c33] p-2 rounded-lg rounded-tl-none shadow-sm max-w-[85%]">
+                                                <span className="text-[10px] text-blue-500 font-bold mb-1 block">Paulo Instrutor</span>
+                                                <p className="text-xs text-slate-800 dark:text-slate-100">Usei semana passada pra consertar o ar condicionado do carro. Salvou minha vida, caiu na hora.</p>
+                                                <span className="text-[10px] text-slate-400 block text-right">09:15</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-24 mb-12 text-center md:text-left">
                             <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight mb-4">A Máfia das Autoescolas está ficando com o seu dinheiro. Chega de ser explorado.</h2>
                             <p className="text-slate-600 dark:text-slate-400 max-w-2xl text-lg">Oferecemos a tecnologia que você precisa para focar no que importa: ensinar.</p>
                         </div>
