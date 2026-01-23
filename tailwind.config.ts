@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 const config: Config = {
     darkMode: "class",
@@ -60,6 +61,10 @@ const config: Config = {
                     border: 'hsl(var(--sidebar-border))',
                     ring: 'hsl(var(--sidebar-ring))'
                 },
+                "brand-dark": "#0f172a",
+                "brand-accent": "#fbbf24",
+                "brand-cta": "#16a34a",
+                "brand-danger": "#ef4444",
                 // Custom Colors
                 "student-primary": "#137fec",
                 "instructor-primary": "#13ec5b",
@@ -78,9 +83,12 @@ const config: Config = {
                 lg: 'var(--radius)',
                 md: 'calc(var(--radius) - 2px)',
                 sm: 'calc(var(--radius) - 4px)'
+            },
+            backgroundImage: {
+                'hero-pattern': "linear-gradient(to bottom, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.7)), url('https://lh3.googleusercontent.com/aida-public/AB6AXuA7rAG6O2TRu9O0kbIgyQfYPdmaZ-7svyEiJrtIq8g_TmxY5tS072RO9Atte8cu9RvUaFaDTMEM-zZkgusmSGYpbUtVuKPYS2sweTl0eI5HFMSoZEdkWqORh6nEe0TV0_EaDAHLMAuIUGOeFql5XVLGOz6hlEdRCpZ7LYOjN1xkO9ReHNDdne01sDVSO4mNWU0r7WrJgwpObyJ_sbRyd5HxuoIYv3LDdN23k3SZQt4nRIoAyBbVEAtxLLxL7-qVdnnB2OqCDBv7kRED')",
             }
         }
     },
-    plugins: [require("tailwindcss-animate")],
+    plugins: [tailwindcssAnimate],
 };
 export default config;

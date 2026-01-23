@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { VEHICLE_FEATURES_STANDARD } from "@/utils/vehicleFeatures";
 
 export default function InstructorOnboardingProfile() {
     const router = useRouter();
@@ -367,7 +368,7 @@ export default function InstructorOnboardingProfile() {
                                         <div className="flex flex-col gap-4">
                                             <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">Equipamentos e Conforto:</p>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                {['❄️ Ar Condicionado', '💪 Direção Elétrica', '🛑 Freio Duplo', '📹 Câmera de Ré', '⚙️ Câmbio Automático', '🔌 Carregador USB', '⚡ Carregador USB-C'].map(feature => (
+                                                {VEHICLE_FEATURES_STANDARD.map(feature => (
                                                     <label key={feature} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
                                                         <input
                                                             type="checkbox"

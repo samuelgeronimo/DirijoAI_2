@@ -2,14 +2,27 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AuthModal from './auth/AuthModal';
+import { createClient } from '@/utils/supabase/client';
 
 export default function LandingPage() {
     const router = useRouter();
     const [locationInput, setLocationInput] = useState("");
     const [isLoadingLocation, setIsLoadingLocation] = useState(false);
     const [locationError, setLocationError] = useState("");
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
+        // Check Auth
+        const supabase = createClient();
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+        };
+        checkUser();
+
+        // existing location logic...
         if ("geolocation" in navigator) {
             setIsLoadingLocation(true);
             navigator.geolocation.getCurrentPosition(async (position) => {
@@ -73,9 +86,22 @@ export default function LandingPage() {
                             <Link href="/instructor" className="text-sm font-bold text-slate-700 hover:text-brand-dark px-4 py-2">
                                 Sou Instrutor
                             </Link>
-                            <button className="bg-brand-dark text-white text-sm font-bold px-6 py-2 rounded-full hover:bg-slate-800 transition-all shadow-lg">
-                                Entrar
-                            </button>
+                            {user ? (
+                                <Link
+                                    href="/student/dashboard"
+                                    className="bg-brand-dark text-white text-sm font-bold px-6 py-2 rounded-full hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-sm">person</span>
+                                    Meu Perfil
+                                </Link>
+                            ) : (
+                                <button
+                                    onClick={() => setIsAuthModalOpen(true)}
+                                    className="bg-brand-dark text-white text-sm font-bold px-6 py-2 rounded-full hover:bg-slate-800 transition-all shadow-lg"
+                                >
+                                    Entrar
+                                </button>
+                            )}
                         </div>
                     </nav>
                 </div>
@@ -338,6 +364,11 @@ export default function LandingPage() {
                     </div>
                 </footer>
             </main>
+
+            <AuthModal
+                isOpen={isAuthModalOpen}
+                onClose={() => setIsAuthModalOpen(false)}
+            />
         </div>
     );
 }

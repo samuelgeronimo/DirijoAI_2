@@ -1,6 +1,23 @@
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/server";
+import { InstructorSignOutButton } from "./InstructorSignOutButton";
 
-export function InstructorSidebar() {
+export async function InstructorSidebar() {
+    const supabase = await createClient();
+
+    // Fetch User Profile
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let profile = null;
+    if (user) {
+        const { data } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', user.id)
+            .single();
+        profile = data;
+    }
+
     return (
         <aside className="hidden lg:flex w-72 flex-col border-r border-white/10 bg-instructor-bg-dark h-full fixed left-0 top-0 bottom-0 z-50">
             <div className="p-6 pb-2">
@@ -46,6 +63,15 @@ export function InstructorSidebar() {
                         <span>Alunos</span>
                     </Link>
                     <Link
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+                        href="/instructor/vehicle"
+                    >
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
+                            directions_car
+                        </span>
+                        <span>Veículo</span>
+                    </Link>
+                    <Link
                         className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 shadow-sm transition-all group"
                         href="/instructor/compliance"
                     >
@@ -80,21 +106,18 @@ export function InstructorSidebar() {
                         <div
                             className="w-10 h-10 rounded-full bg-cover bg-center border-2 border-instructor-primary"
                             style={{
-                                backgroundImage:
-                                    "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBsvE45s6nu91J4c2PtWM-thFyQfVw4QWYGS-11LxClYpiTqpDKeNq0QArVpA5_aHsRVL5Fc-u30JdT1C6bbV62WWYcdjqeGIVoIM-cj0IyEK6FJ2vPtAsT2QYoRj04x0YORzYKvSsUL8FrWlaadzu92AoKYXE0SMlV8a4LdjwRCLq_ubn4OcUxWPe2a9aeD8K6D-MqGmACULtQ9ACFOt0ZRzSJAkAv5ZSh8peLXlr9-2wHjgDsxPRQU2NZbnOZIPFv3KZNZR_jDp_R')",
+                                backgroundImage: `url('${profile?.avatar_url || "https://via.placeholder.com/150"}')`
                             }}
                         ></div>
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-instructor-primary border-2 border-instructor-surface-dark-2 rounded-full"></div>
                     </div>
                     <div className="flex flex-col">
-                        <p className="text-white text-sm font-bold">Carlos M.</p>
+                        <p className="text-white text-sm font-bold truncate max-w-[100px]">
+                            {profile?.full_name || 'Instrutor'}
+                        </p>
                         <p className="text-gray-400 text-xs">Online</p>
                     </div>
-                    <button className="ml-auto text-gray-400 hover:text-white transition-colors cursor-pointer">
-                        <span className="material-symbols-outlined font-light">
-                            logout
-                        </span>
-                    </button>
+                    <InstructorSignOutButton />
                 </div>
             </div>
         </aside>

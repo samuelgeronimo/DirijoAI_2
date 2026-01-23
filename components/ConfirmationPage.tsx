@@ -1,7 +1,43 @@
 "use client";
-import React from 'react';
+import { createClient } from '@/utils/supabase/client';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export default function ConfirmationPage() {
+    const searchParams = useSearchParams();
+    const orderNumber = searchParams.get('order_number');
+    const dateParam = searchParams.get('date');
+    const timeParam = searchParams.get('time');
+    const instructorName = searchParams.get('instructor_name');
+
+    const [firstName, setFirstName] = useState('');
+
+    useEffect(() => {
+        async function fetchProfile() {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .single();
+
+                if (data?.full_name) {
+                    setFirstName(data.full_name.split(' ')[0]);
+                }
+            }
+        }
+        fetchProfile();
+    }, []);
+
+
+    const fmtDate = (d: string) => {
+        const [y, m, day] = d.split('-');
+        return `${day}/${m}/${y}`;
+    }
+
     return (
         <div className="bg-[#f6f7f8] dark:bg-[#101922] text-[#0d141b] dark:text-white font-display overflow-x-hidden transition-colors duration-200 relative flex h-auto min-h-screen w-full flex-col">
             <header className="w-full border-b border-solid border-[#e7edf3] dark:border-slate-800 bg-white dark:bg-[#1a2632]">
@@ -15,8 +51,7 @@ export default function ConfirmationPage() {
                         </div>
                         <div className="hidden md:flex flex-1 justify-end gap-8 items-center">
                             <div className="flex items-center gap-9">
-                                <a className="text-[#0d141b] dark:text-slate-200 text-sm font-medium leading-normal hover:text-[#137fec] transition-colors" href="#">Buscar Instrutores</a>
-                                <a className="text-[#0d141b] dark:text-slate-200 text-sm font-medium leading-normal hover:text-[#137fec] transition-colors" href="#">Minhas Aulas</a>
+                                <Link className="text-[#0d141b] dark:text-slate-200 text-sm font-medium leading-normal hover:text-[#137fec] transition-colors" href="/student/dashboard">Minhas Aulas</Link>
                                 <a className="text-[#0d141b] dark:text-slate-200 text-sm font-medium leading-normal hover:text-[#137fec] transition-colors" href="#">Ajuda</a>
                             </div>
                             <div className="bg-center bg-no-repeat bg-cover rounded-full size-10 border-2 border-slate-100 dark:border-slate-700" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuANRo3rFKLi7gauEbXGQOZu-cmJKYAoNW3o_Pjjybdhupx5xO7Cqz0I10PlBVslSQkB32RNjTC0tybQhlrNBl6ENmPsbDJyNa3iiS0swUDn5vpQebVv8oTtrFpapmYgkUbTiPBOL2e70M-0en0iMFj5BUVv4LHGQHu2xnK1KTZuB-r4KZNrDeCp05nPou5KsIFSqDiz4rMnKBhUj-IYhg1iRaNSvpacvcv7xx9CIumGCnoitus-GjJdVGHGBMO_UHRVGa_7COIruR8A")' }}></div>
@@ -37,12 +72,54 @@ export default function ConfirmationPage() {
                             </div>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h1 className="text-[#0d141b] dark:text-white text-3xl font-bold leading-tight tracking-[-0.015em]">Tudo certo, Carlos!</h1>
+                            <h1 className="text-[#0d141b] dark:text-white text-3xl font-bold leading-tight tracking-[-0.015em]">
+                                Tudo certo, {firstName || 'Motorista'}!
+                            </h1>
                             <p className="text-green-600 dark:text-green-400 text-lg font-semibold leading-normal">
                                 Pagamento Confirmado!
                             </p>
+                            {orderNumber && (
+                                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">
+                                    Pedido #{orderNumber}
+                                </p>
+                            )}
                         </div>
                     </div>
+
+                    {dateParam && timeParam && (
+                        <div className="bg-white dark:bg-[#1a2632] border border-[#e7edf3] dark:border-slate-800 rounded-xl p-6 shadow-sm flex flex-col sm:flex-row items-center gap-6">
+                            <div className="flex flex-col items-center justify-center bg-[#137fec]/10 rounded-lg p-4 min-w-[100px] text-[#137fec]">
+                                <span className="material-symbols-outlined text-3xl mb-1">event_available</span>
+                                <span className="text-xs font-bold uppercase tracking-wide">Agendado</span>
+                            </div>
+                            <div className="flex-1 text-center sm:text-left">
+                                <h3 className="text-lg font-bold text-[#0d141b] dark:text-white mb-1">
+                                    1ª Aula Confirmada
+                                </h3>
+                                <div className="text-slate-600 dark:text-slate-300 text-sm mb-3">
+                                    <p>Sua primeira aula prática já está reservada.</p>
+                                    {instructorName && (
+                                        <p className="font-semibold text-[#137fec] mt-1">
+                                            Instrutor: {instructorName}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-slate-500 mt-1 italic">
+                                        * Combine o local de encontro diretamente pelo chat.
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+                                    <span className="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                        <span className="material-symbols-outlined text-lg">calendar_today</span>
+                                        {fmtDate(dateParam)}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                        <span className="material-symbols-outlined text-lg">schedule</span>
+                                        {timeParam}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-yellow-50/50 dark:bg-yellow-900/10 border-2 border-dashed border-yellow-400 rounded-xl p-6 sm:p-8 flex flex-col items-center text-center gap-6 shadow-sm relative overflow-hidden">
                         <div className="absolute -top-10 -right-10 bg-yellow-200/30 rounded-full size-40 blur-3xl pointer-events-none"></div>
                         <div className="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-full text-yellow-600 dark:text-yellow-400 z-10">
@@ -91,10 +168,12 @@ export default function ConfirmationPage() {
                                     <span className="text-xs text-slate-500">Aula</span>
                                 </div>
                             </div>
-                            <button className="w-full bg-[#137fec] hover:bg-blue-600 text-white font-bold h-14 px-8 rounded-lg text-lg transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 animate-pulse">
-                                <span>AGENDAR MINHA 1ª AULA AGORA</span>
-                                <span className="material-symbols-outlined">arrow_forward</span>
-                            </button>
+                            <Link href="/student/dashboard" className="w-full">
+                                <button className="w-full bg-[#137fec] hover:bg-blue-600 text-white font-bold h-14 px-8 rounded-lg text-lg transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 animate-pulse">
+                                    <span>AGENDAR AS DEMAIS AULAS AGORA</span>
+                                    <span className="material-symbols-outlined">arrow_forward</span>
+                                </button>
+                            </Link>
                             <p className="text-center text-slate-400 text-sm mt-3">Você pode escolher o instrutor na próxima etapa.</p>
                         </div>
                     </div>

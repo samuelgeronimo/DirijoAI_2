@@ -1,6 +1,11 @@
 
 import ConfirmationPage from '@/components/ConfirmationPage';
+import { Suspense } from 'react';
 
 export default function Page() {
-    return <ConfirmationPage />;
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ConfirmationPage />
+        </Suspense>
+    );
 }

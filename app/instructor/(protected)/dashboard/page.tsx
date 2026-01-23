@@ -1,9 +1,38 @@
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
 import { FinancialStats } from "@/components/instructor/dashboard/FinancialStats";
 import { MiniAgenda } from "@/components/instructor/dashboard/MiniAgenda";
 import { NextMission } from "@/components/instructor/dashboard/NextMission";
 import { ReputationCard } from "@/components/instructor/dashboard/ReputationCard";
+import { SalesList } from "@/components/instructor/dashboard/SalesList";
 
-export default function InstructorDashboardPage() {
+export default async function InstructorDashboardPage() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect('/instructor/login');
+    }
+
+    // Fetch sales
+    const { data: sales } = await supabase
+        .from('orders')
+        .select(`
+            *,
+            student:profiles!orders_student_id_fkey(full_name, avatar_url)
+        `)
+        .eq('instructor_id', user.id)
+        .order('created_at', { ascending: false });
+
+    // Helper to map student profile from join
+    const formattedSales = sales?.map(s => ({
+        ...s,
+        student: s.student // The join returns an object or array depending on relation, verify if 'single' or not.
+        // Actually supabase-js usually returns an object if it's a foreign key one-to-one or many-to-one
+        // Here student_id is many-to-one (Orders belongs to Student). So it returns an object.
+    })) || [];
+
+
     return (
         <div className="max-w-7xl mx-auto px-6 py-8 lg:px-12 lg:py-10">
             {/* Page Heading */}
@@ -37,6 +66,9 @@ export default function InstructorDashboardPage() {
                     <ReputationCard />
                     <MiniAgenda />
                 </div>
+
+                {/* Sales List */}
+                <SalesList sales={formattedSales} />
             </div>
         </div>
     );

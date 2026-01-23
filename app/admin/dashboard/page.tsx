@@ -2,8 +2,32 @@ import { ActionTable } from "@/components/admin/ActionTable";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { GrowthChart } from "@/components/admin/GrowthChart";
 import { SupplyAlertWidget } from "@/components/admin/SupplyAlertWidget";
+import { RecentOrdersTable } from "@/components/admin/RecentOrdersTable";
+import { createClient } from "@/utils/supabase/server";
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+    const supabase = await createClient();
+
+    // Fetch recent orders
+    const { data: orders } = await supabase
+        .from('orders')
+        .select(`
+            *,
+            student:student_id(full_name, email),
+            instructor:instructor_id(
+                profiles(full_name)
+            )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+    // Transform for table
+    const formattedOrders = orders?.map(o => ({
+        ...o,
+        student: o.student,
+        instructor: o.instructor
+    })) || [];
+
     return (
         <>
             <AdminHeader />
@@ -87,6 +111,9 @@ export default function AdminDashboardPage() {
                         <GrowthChart />
                         <SupplyAlertWidget />
                     </div>
+
+                    {/* Recent Orders Table */}
+                    <RecentOrdersTable orders={formattedOrders} />
 
                     {/* Fire Table (Action Required) */}
                     <ActionTable />

@@ -1,10 +1,13 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
+import { validateFullName, validateEmail, validatePassword, formatPhone } from "@/utils/validators";
+
 export default function InstructorLandingPage() {
+    const [mounted, setMounted] = useState(false);
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -14,13 +17,68 @@ export default function InstructorLandingPage() {
         password: "",
         service_city: ""
     });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [termsAccepted, setTermsAccepted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) {
+        return null;
+    }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        let { name, value } = e.target;
+
+        if (name === 'phone') {
+            value = formatPhone(value);
+        }
+
+        setFormData({ ...formData, [name]: value });
+
+        // Clear error when user types
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
+    };
+
+    const validateForm = () => {
+        const newErrors: Record<string, string> = {};
+
+        if (!validateFullName(formData.fullName)) {
+            newErrors.fullName = "Digite seu nome completo (mínimo 2 nomes).";
+        }
+
+        if (!validateEmail(formData.email)) {
+            newErrors.email = "E-mail inválido.";
+        }
+
+        if (formData.phone.length < 14) { // (11) 99999-9999 is 15 chars, (11) 9999-9999 is 14.
+            newErrors.phone = "Telefone inválido.";
+        }
+
+        if (!validatePassword(formData.password)) {
+            newErrors.password = "Mínimo 8 caracteres, 1 maiúscula e 1 caractere especial.";
+        }
+
+        if (!termsAccepted) {
+            newErrors.terms = "Você deve aceitar os termos.";
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!validateForm()) return;
+
         setLoading(true);
 
         const supabase = createClient();
@@ -38,7 +96,14 @@ export default function InstructorLandingPage() {
         });
 
         if (authError) {
-            alert("Erro ao criar conta: " + authError.message);
+            if (authError.message.includes("User already registered") || authError.status === 422) {
+                setErrors(prev => ({
+                    ...prev,
+                    email: "E-mail já cadastrado. " // We'll render the link in the UI
+                }));
+            } else {
+                alert("Erro ao criar conta: " + authError.message);
+            }
             setLoading(false);
             return;
         }
@@ -179,11 +244,12 @@ export default function InstructorLandingPage() {
                                                 name="fullName"
                                                 value={formData.fullName}
                                                 onChange={handleChange}
-                                                className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                className={`w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border ${errors.fullName ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-[#137fec]'} focus:ring-1 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white`}
                                                 placeholder="Ex: João da Silva"
                                                 type="text"
-                                                required
+                                            // removed required to use manual validation
                                             />
+                                            {errors.fullName && <span className="text-xs text-red-500 font-bold mt-1 block">{errors.fullName}</span>}
                                         </div>
                                     </label>
                                     <label className="flex flex-col gap-1.5">
@@ -196,11 +262,20 @@ export default function InstructorLandingPage() {
                                                 name="email"
                                                 value={formData.email}
                                                 onChange={handleChange}
-                                                className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                className={`w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border ${errors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-[#137fec]'} focus:ring-1 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white`}
                                                 placeholder="seu@email.com"
                                                 type="email"
-                                                required
                                             />
+                                            {errors.email && (
+                                                <span className="text-xs text-red-500 font-bold mt-1 block">
+                                                    {errors.email}
+                                                    {errors.email.includes("Login") || errors.email.includes("cadastrado") ? (
+                                                        <Link href="/instructor/login" className="underline hover:text-red-700 ml-1">
+                                                            Faça login
+                                                        </Link>
+                                                    ) : null}
+                                                </span>
+                                            )}
                                         </div>
                                     </label>
                                     <label className="flex flex-col gap-1.5">
@@ -213,11 +288,12 @@ export default function InstructorLandingPage() {
                                                 name="phone"
                                                 value={formData.phone}
                                                 onChange={handleChange}
-                                                className="w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                className={`w-full pl-10 pr-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border ${errors.phone ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-[#137fec]'} focus:ring-1 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white`}
                                                 placeholder="(00) 00000-0000"
                                                 type="tel"
-                                                required
+                                                maxLength={15}
                                             />
+                                            {errors.phone && <span className="text-xs text-red-500 font-bold mt-1 block">{errors.phone}</span>}
                                         </div>
                                     </label>
                                     <label className="flex flex-col gap-1.5">
@@ -247,26 +323,43 @@ export default function InstructorLandingPage() {
                                                 name="password"
                                                 value={formData.password}
                                                 onChange={handleChange}
-                                                className="w-full pl-10 pr-12 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-1 focus:ring-[#137fec] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white"
+                                                className={`w-full pl-10 pr-12 py-3 rounded-lg bg-slate-50 dark:bg-slate-900 border ${errors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 dark:border-slate-700 focus:border-[#137fec] focus:ring-[#137fec]'} focus:ring-1 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-white`}
                                                 placeholder="••••••••"
                                                 type="password"
-                                                required
                                             />
                                             <button className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer" type="button">
                                                 <span className="material-symbols-outlined text-[20px]">visibility</span>
                                             </button>
                                         </div>
+                                        {errors.password && <span className="text-xs text-red-500 font-bold mt-1 block">{errors.password}</span>}
                                     </label>
                                     <label className="flex items-start gap-2 mt-2 cursor-pointer group">
                                         <div className="relative flex items-center">
-                                            <input className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-300 shadow transition-all checked:border-[#137fec] checked:bg-[#137fec] hover:shadow-md dark:border-slate-600 dark:bg-slate-800" type="checkbox" required />
+                                            <input
+                                                className={`peer h-4 w-4 cursor-pointer appearance-none rounded border shadow transition-all checked:border-[#137fec] checked:bg-[#137fec] hover:shadow-md dark:bg-slate-800 ${errors.terms ? 'border-red-500' : 'border-slate-300 dark:border-slate-600'}`}
+                                                type="checkbox"
+                                                checked={termsAccepted}
+                                                onChange={(e) => {
+                                                    setTermsAccepted(e.target.checked);
+                                                    if (e.target.checked && errors.terms) {
+                                                        setErrors(prev => {
+                                                            const newErrors = { ...prev };
+                                                            delete newErrors.terms;
+                                                            return newErrors;
+                                                        });
+                                                    }
+                                                }}
+                                            />
                                             <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
                                                 <span className="material-symbols-outlined text-[14px] font-bold">check</span>
                                             </span>
                                         </div>
-                                        <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
-                                            Concordo com os <a className="text-[#137fec] hover:underline" href="#">Termos de Uso</a> e <a className="text-[#137fec] hover:underline" href="#">Política de Privacidade</a>.
-                                        </span>
+                                        <div className="flex flex-col">
+                                            <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+                                                Concordo com os <a className="text-[#137fec] hover:underline" href="#">Termos de Uso</a> e <a className="text-[#137fec] hover:underline" href="#">Política de Privacidade</a>.
+                                            </span>
+                                            {errors.terms && <span className="text-xs text-red-500 font-bold mt-1">{errors.terms}</span>}
+                                        </div>
                                     </label>
                                     <button
                                         type="submit"

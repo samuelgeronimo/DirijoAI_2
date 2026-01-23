@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
+import { formatCEP } from "@/utils/validators";
+
 export default function InstructorOnboardingAddress() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ export default function InstructorOnboardingAddress() {
 
             if (instructor) {
                 setFormData({
-                    zip_code: instructor.zip_code || "",
+                    zip_code: instructor.zip_code ? formatCEP(instructor.zip_code) : "", // Format initial data
                     street: instructor.street || "",
                     number: instructor.number || "",
                     complement: instructor.complement || "",
@@ -63,6 +65,8 @@ export default function InstructorOnboardingAddress() {
                         city: data.localidade,
                         state: data.uf
                     }));
+                } else {
+                    alert("CEP não encontrado.");
                 }
             } catch (error) {
                 console.error("Erro ao buscar CEP", error);
@@ -73,7 +77,12 @@ export default function InstructorOnboardingAddress() {
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
+        let { name, value } = e.target;
+
+        if (name === 'zip_code') {
+            value = formatCEP(value);
+        }
+
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 

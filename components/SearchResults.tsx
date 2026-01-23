@@ -43,11 +43,20 @@ export default function SearchResults() {
 
     const VEHICLE_FEATURES = ['❄️ Ar Condicionado', '💪 Direção Elétrica', '🛑 Freio Duplo', '📹 Câmera de Ré', '⚙️ Câmbio Automático', '🔌 Carregador USB', '⚡ Carregador USB-C'];
 
+    const [user, setUser] = useState<any>(null);
+
     // Fetch Data
     useEffect(() => {
+        const supabase = createClient();
+
+        async function checkUser() {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+        }
+        checkUser();
+
         async function fetchInstructors() {
             setLoading(true);
-            const supabase = createClient();
 
             let queryBuilder = supabase
                 .from('instructors')
@@ -195,9 +204,19 @@ export default function SearchResults() {
                             <Link href="/instructor" className="hidden md:block text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-[#137fec] transition-colors">
                                 Sou Instrutor
                             </Link>
-                            <button className="bg-[#137fec] hover:bg-[#137fec]/90 text-white text-sm font-bold px-5 py-2 rounded-full shadow-lg shadow-blue-500/20 transition-all">
-                                Entrar
-                            </button>
+                            {user ? (
+                                <Link
+                                    href="/student/dashboard"
+                                    className="bg-[#137fec] hover:bg-[#137fec]/90 text-white text-sm font-bold px-5 py-2 rounded-full shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-sm">person</span>
+                                    Meu Perfil
+                                </Link>
+                            ) : (
+                                <button className="bg-[#137fec] hover:bg-[#137fec]/90 text-white text-sm font-bold px-5 py-2 rounded-full shadow-lg shadow-blue-500/20 transition-all">
+                                    Entrar
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

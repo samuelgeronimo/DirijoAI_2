@@ -101,15 +101,14 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
             endOfDay.setHours(23, 59, 59, 999);
 
             const { data: lessons, error } = await supabase
-                .from('lessons')
-                .select('scheduled_at')
-                .eq('instructor_id', instructorId)
-                .in('status', ['scheduled', 'in_progress'])
-                .gte('scheduled_at', startOfDay.toISOString())
-                .lte('scheduled_at', endOfDay.toISOString());
+                .rpc('get_instructor_busy_slots', {
+                    p_instructor_id: instructorId,
+                    p_start_date: startOfDay.toISOString(),
+                    p_end_date: endOfDay.toISOString()
+                });
 
             if (lessons) {
-                const busyTimes = lessons.map(lesson => {
+                const busyTimes = lessons.map((lesson: any) => {
                     const lessonDate = new Date(lesson.scheduled_at);
                     // Format as "H:00" or "HH:00" depending on storage, matching getSlotsForDate
                     // getSlotsForDate produces "8:00", "9:00"...
@@ -175,7 +174,8 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
             router.push(targetUrl);
         } else {
             const redirectUrl = encodeURIComponent(targetUrl);
-            router.push(`/login?redirectTo=${redirectUrl}`);
+            const cancelUrl = encodeURIComponent(window.location.pathname + window.location.search);
+            router.push(`/login?redirectTo=${redirectUrl}&cancelUrl=${cancelUrl}`);
         }
     }
 
@@ -208,7 +208,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                     service_city,
                     service_mode,
                     profiles!instructors_id_fkey(full_name, avatar_url),
-                    vehicles(model, brand, year, features, photo_urls),
+                    vehicles(model, brand, year, features, photo_urls, updated_at),
                     instructor_availability(day_of_week, start_time, end_time, hourly_rate_cents)
                 `)
                 .eq('id', instructorId)
@@ -219,7 +219,16 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
             } else {
                 // Fix issue where profiles might be returned as an array by Supabase join
                 const profilesData = Array.isArray(instructorData.profiles) ? instructorData.profiles[0] : instructorData.profiles;
-                setInstructor({ ...instructorData, profiles: profilesData } as unknown as Instructor);
+
+                // Ensure we get the latest vehicle if multiple exist (due to previous bug)
+                let vehiclesData = instructorData.vehicles;
+                if (Array.isArray(vehiclesData) && vehiclesData.length > 0) {
+                    // @ts-ignore
+                    vehiclesData = vehiclesData.sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
+                    // Keep as array for type compatibility, but the first one will be the latest
+                }
+
+                setInstructor({ ...instructorData, profiles: profilesData, vehicles: vehiclesData } as unknown as Instructor);
             }
 
             // Fetch Success Gallery Photos from Database (Metadata included)

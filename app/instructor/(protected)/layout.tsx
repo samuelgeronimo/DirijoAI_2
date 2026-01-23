@@ -1,10 +1,31 @@
 import { InstructorSidebar } from "@/components/instructor/dashboard/InstructorSidebar";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
 
-export default function InstructorPrivateLayout({
+export default async function InstructorPrivateLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return redirect("/instructor/login");
+    }
+
+    // RBAC Check
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    // If user is a student, they shouldn't be here
+    if (profile?.role === 'student') {
+        return redirect('/student/dashboard');
+    }
+
     return (
         // Forced Dark Mode style for Instructor Dashboard
         <div className="bg-instructor-bg-dark text-white h-screen overflow-hidden flex font-display dark">
