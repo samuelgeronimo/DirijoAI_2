@@ -1,6 +1,36 @@
-export function KPIStats() {
+import { formatCurrency } from "@/utils/instructorMetrics";
+
+interface KPIStatsProps {
+    occupancyRate: number;
+    occupancyTrend: number;
+    hoursSold: number;
+    hoursTrend: number;
+    revenue: number;
+    revenueTrend: number;
+}
+
+export function KPIStats({
+    occupancyRate,
+    occupancyTrend,
+    hoursSold,
+    hoursTrend,
+    revenue,
+    revenueTrend,
+}: KPIStatsProps) {
+    const getTrendIcon = (trend: number) => {
+        if (trend > 0) return 'trending_up';
+        if (trend < 0) return 'trending_down';
+        return 'trending_flat';
+    };
+
+    const getTrendColor = (trend: number) => {
+        if (trend > 0) return 'text-green-500';
+        if (trend < 0) return 'text-red-500';
+        return 'text-gray-500';
+    };
+
     return (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="relative overflow-hidden rounded-xl border border-instructor-surface-dark bg-instructor-surface-dark-2 p-5">
                 <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-[#92a4c9]">
@@ -11,16 +41,19 @@ export function KPIStats() {
                     </span>
                 </div>
                 <div className="mt-2 flex items-baseline gap-2">
-                    <p className="text-2xl font-bold text-white">78%</p>
-                    <span className="text-xs font-medium text-green-500 flex items-center gap-0.5">
-                        <span className="material-symbols-outlined text-[12px]">
-                            trending_up
-                        </span>{" "}
-                        +5%
-                    </span>
+                    <p className="text-2xl font-bold text-white">{occupancyRate}%</p>
+                    {occupancyTrend !== 0 && (
+                        <span className={`text-xs font-medium flex items-center gap-0.5 ${getTrendColor(occupancyTrend)}`}>
+                            <span className="material-symbols-outlined text-[12px]">
+                                {getTrendIcon(occupancyTrend)}
+                            </span>
+                            {Math.abs(occupancyTrend)}%
+                        </span>
+                    )}
                 </div>
-                <div className="absolute bottom-0 left-0 h-1 bg-instructor-primary w-[78%]"></div>
+                <div className="absolute bottom-0 left-0 h-1 bg-instructor-primary transition-all" style={{ width: `${occupancyRate}%` }}></div>
             </div>
+
             <div className="relative overflow-hidden rounded-xl border border-instructor-surface-dark bg-instructor-surface-dark-2 p-5">
                 <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-[#92a4c9]">Horas Vendidas</p>
@@ -29,15 +62,18 @@ export function KPIStats() {
                     </span>
                 </div>
                 <div className="mt-2 flex items-baseline gap-2">
-                    <p className="text-2xl font-bold text-white">32h</p>
-                    <span className="text-xs font-medium text-green-500 flex items-center gap-0.5">
-                        <span className="material-symbols-outlined text-[12px]">
-                            trending_up
-                        </span>{" "}
-                        +12%
-                    </span>
+                    <p className="text-2xl font-bold text-white">{hoursSold.toFixed(1)}h</p>
+                    {hoursTrend !== 0 && (
+                        <span className={`text-xs font-medium flex items-center gap-0.5 ${getTrendColor(hoursTrend)}`}>
+                            <span className="material-symbols-outlined text-[12px]">
+                                {getTrendIcon(hoursTrend)}
+                            </span>
+                            {Math.abs(hoursTrend)}%
+                        </span>
+                    )}
                 </div>
             </div>
+
             <div className="relative overflow-hidden rounded-xl border border-instructor-surface-dark bg-instructor-surface-dark-2 p-5">
                 <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-[#92a4c9]">Faturamento</p>
@@ -46,30 +82,15 @@ export function KPIStats() {
                     </span>
                 </div>
                 <div className="mt-2 flex items-baseline gap-2">
-                    <p className="text-2xl font-bold text-white">R$ 2.450</p>
-                    <span className="text-xs font-medium text-green-500 flex items-center gap-0.5">
-                        <span className="material-symbols-outlined text-[12px]">
-                            trending_up
-                        </span>{" "}
-                        +8%
-                    </span>
-                </div>
-            </div>
-            {/* Promotion Status Card */}
-            <div className="relative overflow-hidden rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-transparent p-5 group cursor-pointer hover:bg-yellow-500/5 transition-colors">
-                <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-yellow-500">Flash Offer</p>
-                    <span className="material-symbols-outlined text-yellow-500 animate-pulse">
-                        bolt
-                    </span>
-                </div>
-                <div className="mt-2">
-                    <p className="text-lg font-bold text-white leading-tight">
-                        Ativo agora
-                    </p>
-                    <p className="text-xs text-[#92a4c9]">
-                        Preenchendo vagas de quarta-feira
-                    </p>
+                    <p className="text-2xl font-bold text-white">{formatCurrency(revenue)}</p>
+                    {revenueTrend !== 0 && (
+                        <span className={`text-xs font-medium flex items-center gap-0.5 ${getTrendColor(revenueTrend)}`}>
+                            <span className="material-symbols-outlined text-[12px]">
+                                {getTrendIcon(revenueTrend)}
+                            </span>
+                            {Math.abs(revenueTrend)}%
+                        </span>
+                    )}
                 </div>
             </div>
         </div>

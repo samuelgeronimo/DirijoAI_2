@@ -1,4 +1,11 @@
-export function FinancialStats() {
+import { formatCurrency } from "@/utils/instructorMetrics";
+
+interface FinancialStatsProps {
+    availableBalance: number;
+    amountToReceive: number;
+}
+
+export function FinancialStats({ availableBalance, amountToReceive }: FinancialStatsProps) {
     return (
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
             {/* Available Balance */}
@@ -18,7 +25,7 @@ export function FinancialStats() {
                     <div>
                         <p className="text-gray-400 font-medium mb-1">Saldo Disponível</p>
                         <h3 className="text-4xl font-extrabold text-white tracking-tight">
-                            R$ 1.250,00
+                            {formatCurrency(availableBalance)}
                         </h3>
                     </div>
                     <button className="w-full bg-instructor-primary hover:bg-instructor-primary-hover text-instructor-bg-dark font-bold py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(19,236,91,0.2)] hover:shadow-[0_0_30px_rgba(19,236,91,0.3)] flex items-center justify-center gap-2 cursor-pointer">
@@ -43,7 +50,7 @@ export function FinancialStats() {
                     <div>
                         <p className="text-gray-400 font-medium mb-1">A Receber</p>
                         <h3 className="text-4xl font-extrabold text-gray-300 tracking-tight opacity-90">
-                            R$ 450,00
+                            {formatCurrency(amountToReceive)}
                         </h3>
                     </div>
                     <div className="w-full bg-white/5 border border-white/5 p-3 rounded-xl flex items-center gap-3">
