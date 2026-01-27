@@ -2,6 +2,10 @@
  * Helper functions for schedule management
  */
 
+import { Database } from '@/types/supabase';
+
+type Lesson = Database['public']['Tables']['lessons']['Row'];
+
 /**
  * Get array of 7 days for the week containing the given date
  */
@@ -60,11 +64,12 @@ export function calculateOccupancyRate(
     return Math.round((scheduledHours / availableHours) * 100);
 }
 
+
 /**
  * Group lessons by day
  */
-export function groupLessonsByDay(lessons: any[]): Map<string, any[]> {
-    const grouped = new Map<string, any[]>();
+export function groupLessonsByDay(lessons: Lesson[]): Map<string, Lesson[]> {
+    const grouped = new Map<string, Lesson[]>();
 
     lessons.forEach(lesson => {
         const date = new Date(lesson.scheduled_at);
@@ -83,7 +88,7 @@ export function groupLessonsByDay(lessons: any[]): Map<string, any[]> {
  * Get lesson grid position (row and column)
  */
 export function getLessonGridPosition(
-    lesson: any,
+    lesson: Lesson,
     weekDays: Date[]
 ): { row: number; col: number; span: number } {
     const lessonDate = new Date(lesson.scheduled_at);
@@ -98,7 +103,7 @@ export function getLessonGridPosition(
     );
 
     // Span: based on duration (50 minutes = 1 row, 100 minutes = 2 rows)
-    const span = Math.ceil(lesson.duration_minutes / 60);
+    const span = Math.ceil((lesson.duration_minutes || 50) / 60);
 
     return { row, col, span };
 }

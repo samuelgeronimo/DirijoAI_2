@@ -66,7 +66,7 @@ const config: Config = {
                 "brand-cta": "#16a34a",
                 "brand-danger": "#ef4444",
                 // Custom Colors
-                "student-primary": "#137fec",
+                "student-primary": "#ff4f00", // Signal Orange (Anti-Blue Trap)
                 "instructor-primary": "#13ec5b",
                 "instructor-primary-hover": "#0fb845",
                 "instructor-secondary": "#facc15",
@@ -86,6 +86,25 @@ const config: Config = {
             },
             backgroundImage: {
                 'hero-pattern': "linear-gradient(to bottom, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.7)), url('https://lh3.googleusercontent.com/aida-public/AB6AXuA7rAG6O2TRu9O0kbIgyQfYPdmaZ-7svyEiJrtIq8g_TmxY5tS072RO9Atte8cu9RvUaFaDTMEM-zZkgusmSGYpbUtVuKPYS2sweTl0eI5HFMSoZEdkWqORh6nEe0TV0_EaDAHLMAuIUGOeFql5XVLGOz6hlEdRCpZ7LYOjN1xkO9ReHNDdne01sDVSO4mNWU0r7WrJgwpObyJ_sbRyd5HxuoIYv3LDdN23k3SZQt4nRIoAyBbVEAtxLLxL7-qVdnnB2OqCDBv7kRED')",
+            },
+            keyframes: {
+                'fade-in-up': {
+                    '0%': { opacity: '0', transform: 'translateY(20px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' },
+                },
+                'fade-in': {
+                    '0%': { opacity: '0' },
+                    '100%': { opacity: '1' },
+                }
+            },
+            animation: {
+                'fade-in-up': 'fade-in-up 0.8s ease-out forwards',
+                'fade-in': 'fade-in 0.5s ease-out forwards',
+            },
+            boxShadow: {
+                'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.12)', // Removed blue tint
+                'glow': '0 0 20px rgba(19, 236, 91, 0.4)', // Changed to Instructor Green glow
+                'card-hover': '0 10px 40px -10px rgba(0,0,0,0.1)'
             }
         }
     },

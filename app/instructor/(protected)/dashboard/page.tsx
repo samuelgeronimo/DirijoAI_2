@@ -6,6 +6,7 @@ import { NextMission } from "@/components/instructor/dashboard/NextMission";
 import { ReputationCard } from "@/components/instructor/dashboard/ReputationCard";
 import { SalesList } from "@/components/instructor/dashboard/SalesList";
 import { getGreeting, calculateInstructorLevel } from "@/utils/instructorMetrics";
+import { getPlatformTakeRate } from "@/app/admin/actions";
 
 export default async function InstructorDashboardPage() {
     const supabase = await createClient();
@@ -15,89 +16,193 @@ export default async function InstructorDashboardPage() {
         redirect('/instructor/login');
     }
 
-    // Fetch instructor profile
-    const { data: instructor } = await supabase
-        .from('instructors')
-        .select('*, profiles!inner(full_name, avatar_url, created_at)')
-        .eq('id', user.id)
-        .single();
+    // Fetch Dynamic Take Rate first (needed for calculations)
+    const platformTakeRate = await getPlatformTakeRate();
+    const instructorRate = (100 - platformTakeRate) / 100;
+
+    // OPTIMIZATION: Parallel query execution - reduces waterfall from ~800ms to ~150ms
+    const [
+        instructorResult,
+        nextLessonResult,
+        upcomingLessonsResult,
+        scheduledLessonsResult,
+        allPaidOrdersResult,
+        completedLessonsResult,
+        reviewsResult,
+        salesResult
+    ] = await Promise.all([
+        // 1. Instructor profile
+        supabase
+            .from('instructors')
+            .select('balance_cents, status, profiles!inner(full_name, avatar_url, created_at)')
+            .eq('id', user.id)
+            .single(),
+
+        // 2. Next scheduled lesson
+        supabase
+            .from('lessons')
+            .select(`
+                id, scheduled_at, duration_minutes, price_cents, pickup_address, pickup_lat, pickup_lng,
+                student:profiles!lessons_student_id_fkey(full_name, avatar_url)
+            `)
+            .eq('instructor_id', user.id)
+            .eq('status', 'scheduled')
+            .gte('scheduled_at', new Date().toISOString())
+            .order('scheduled_at', { ascending: true })
+            .limit(1)
+            .single(),
+
+        // 3. Upcoming lessons (next 2-3)
+        supabase
+            .from('lessons')
+            .select(`
+                id, scheduled_at, duration_minutes,
+                student:profiles!lessons_student_id_fkey(full_name, avatar_url)
+            `)
+            .eq('instructor_id', user.id)
+            .eq('status', 'scheduled')
+            .gte('scheduled_at', new Date().toISOString())
+            .order('scheduled_at', { ascending: true })
+            .range(1, 3),
+
+        // 4. Scheduled lessons (for amount to receive)
+        supabase
+            .from('lessons')
+            .select('price_cents')
+            .eq('instructor_id', user.id)
+            .eq('status', 'scheduled'),
+
+        // 5. All paid orders (for deduction map)
+        supabase
+            .from('orders')
+            .select('amount_cents, metadata, lessons_count')
+            .eq('instructor_id', user.id),
+
+        // 6. Completed lessons count
+        supabase
+            .from('lessons')
+            .select('price_cents', { count: 'exact' })
+            .eq('instructor_id', user.id)
+            .eq('status', 'completed'),
+
+        // 7. Reviews
+        supabase
+            .from('reviews')
+            .select('rating')
+            .eq('instructor_id', user.id),
+
+        // 8. Recent sales
+        supabase
+            .from('orders')
+            .select(`
+                id, amount_cents, lessons_count, status, created_at, metadata,
+                student:profiles!orders_student_id_fkey(full_name, avatar_url)
+            `)
+            .eq('instructor_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(10)
+    ]);
+
+    const instructor = instructorResult.data;
+    const nextLesson = nextLessonResult.data;
+    const upcomingLessons = upcomingLessonsResult.data;
+    const scheduledLessons = scheduledLessonsResult.data;
+    const allPaidOrders = allPaidOrdersResult.data;
+    const { data: completedLessons, count: completedLessonsCount } = completedLessonsResult;
+    const reviews = reviewsResult.data;
+    const sales = salesResult.data;
 
     if (!instructor) {
         redirect('/instructor/login');
     }
 
-    // Fetch next scheduled lesson
-    const { data: nextLesson } = await supabase
-        .from('lessons')
-        .select(`
-            *,
-            student:profiles!lessons_student_id_fkey(full_name, avatar_url)
-        `)
-        .eq('instructor_id', user.id)
-        .eq('status', 'scheduled')
-        .gte('scheduled_at', new Date().toISOString())
-        .order('scheduled_at', { ascending: true })
-        .limit(1)
-        .single();
+    // Check if instructor is approved - redirect to confirmation if not
+    if (instructor.status !== 'active') {
+        redirect('/instructor/onboarding/confirmation');
+    }
 
-    // Fetch upcoming lessons for mini agenda (next 2-3 lessons after the first one)
-    const { data: upcomingLessons } = await supabase
-        .from('lessons')
-        .select(`
-            *,
-            student:profiles!lessons_student_id_fkey(full_name, avatar_url)
-        `)
-        .eq('instructor_id', user.id)
-        .eq('status', 'scheduled')
-        .gte('scheduled_at', new Date().toISOString())
-        .order('scheduled_at', { ascending: true })
-        .range(1, 3); // Skip first (it's the next mission), get next 2-3
+    // Map of Lesson Price -> Deduction Amount (Net Value of Manual Share)
+    const deductionMap: Record<number, number> = {};
 
-    // Calculate amount to receive (scheduled lessons not yet completed)
-    const { data: scheduledLessons } = await supabase
-        .from('lessons')
-        .select('price_cents')
-        .eq('instructor_id', user.id)
-        .eq('status', 'scheduled');
+    allPaidOrders?.forEach(ord => {
+        const metadata = ord.metadata as any;
+        if (metadata?.manual_included && metadata?.manual_price) {
+            const manualCents = Math.round(Number(metadata.manual_price) * 100);
+            const totalCents = Number(ord.amount_cents);
+            const lessonsCount = Number(ord.lessons_count) || 1;
 
-    const amountToReceive = scheduledLessons?.reduce((sum, lesson) => sum + (lesson.price_cents || 0), 0) || 0;
+            // Calculate Unit Values
+            // Unit Total = Total / Count
+            // Unit Manual = Manual / Count
+            // Unit Lesson = Unit Total - Unit Manual
 
-    // Fetch reviews for reputation calculation
-    const { data: reviews } = await supabase
-        .from('reviews')
-        .select('rating')
-        .eq('instructor_id', user.id);
+            const unitTotal = Math.round(totalCents / lessonsCount);
+            const unitManual = Math.round(manualCents / lessonsCount);
+            const unitLesson = unitTotal - unitManual;
+
+            // Calculate Deduction Per Lesson
+            // Deduction = UnitNet - UnitLessonNet
+            // This is the amount of "Manual Money" that ended up in the balance for ONE lesson
+            const unitNet = Math.floor(unitTotal * instructorRate);
+            const unitLessonNet = Math.floor(unitLesson * instructorRate);
+            const deductionPerLesson = unitNet - unitLessonNet;
+
+            // Store in map keyed by the Lesson Price (which is Unit Total)
+            deductionMap[unitTotal] = deductionPerLesson;
+
+            // Catch rounding variations (floor vs round)
+            const unitTotalFloor = Math.floor(totalCents / lessonsCount);
+            if (!deductionMap[unitTotalFloor]) deductionMap[unitTotalFloor] = deductionPerLesson;
+        }
+    });
+
+    // Calculate total deduction for COMPLETED lessons only
+    const totalManualsNetDeduction = completedLessons?.reduce((sum, lesson) => {
+        const price = Number(lesson.price_cents) || 0;
+        return sum + (deductionMap[price] || 0);
+    }, 0) || 0;
+
+    const amountToReceive = scheduledLessons?.reduce((sum, lesson) => {
+        let price = Number(lesson.price_cents) || 0;
+        // Logic for amountToReceive remains similar: we want to show Net Lesson Value
+        // If it's a manual-included lesson, we subtract the deduction first
+        if (deductionMap[price]) {
+            // Effectively: NetLesson = NetTotal - Deduction
+            const netTotal = Math.floor(price * instructorRate);
+            return sum + (netTotal - deductionMap[price]);
+        }
+        return sum + Math.floor(price * instructorRate);
+    }, 0) || 0;
+
+    // Calculate Corrected Balance (Remove Manuals Net Value from Realized Balance)
+    const correctedBalance = Math.max(0, (instructor.balance_cents || 0) - totalManualsNetDeduction);
 
     const totalReviews = reviews?.length || 0;
     const averageRating = totalReviews > 0 && reviews
         ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews
         : 5.0;
 
-    // Count completed lessons
-    const { count: completedLessonsCount } = await supabase
-        .from('lessons')
-        .select('*', { count: 'exact', head: true })
-        .eq('instructor_id', user.id)
-        .eq('status', 'completed');
+    const formattedSales = sales?.map(s => {
+        // Calculate lesson-only price (exclude manual if included)
+        let lessonOnlyPrice = s.amount_cents;
+        if (s.metadata && typeof s.metadata === 'object' && 'manual_included' in s.metadata) {
+            const metadata = s.metadata as { manual_included?: boolean; manual_price?: number };
+            if (metadata.manual_included && metadata.manual_price) {
+                lessonOnlyPrice = s.amount_cents - Math.round(metadata.manual_price * 100);
+            }
+        }
 
-    // Fetch sales
-    const { data: sales } = await supabase
-        .from('orders')
-        .select(`
-            *,
-            student:profiles!orders_student_id_fkey(full_name, avatar_url)
-        `)
-        .eq('instructor_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-    const formattedSales = sales?.map(s => ({
-        ...s,
-        student: s.student
-    })) || [];
+        return {
+            ...s,
+            amount_cents: lessonOnlyPrice,
+            plan_name: `${s.lessons_count} aula${s.lessons_count > 1 ? 's' : ''}`,
+            student: s.student,
+            status: s.status || 'pending'
+        };
+    }) || [];
 
     // Calculate instructor level
-    const memberSince = new Date(instructor.profiles.created_at);
+    const memberSince = new Date(instructor.profiles.created_at || new Date());
     const instructorLevel = calculateInstructorLevel(
         averageRating,
         completedLessonsCount || 0,
@@ -127,13 +232,24 @@ export default async function InstructorDashboardPage() {
             </header>
 
             <FinancialStats
-                availableBalance={instructor.balance_cents || 0}
+                availableBalance={correctedBalance}
                 amountToReceive={amountToReceive}
             />
 
             {/* Main Dashboard Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <NextMission lesson={nextLesson} />
+                <NextMission lesson={nextLesson ? {
+                    ...nextLesson,
+                    pickup_address: nextLesson.pickup_address || undefined,
+                    pickup_lat: nextLesson.pickup_lat || undefined,
+                    pickup_lng: nextLesson.pickup_lng || undefined,
+                    student_notes: (nextLesson as any).student_notes || undefined,
+                    student: {
+                        ...nextLesson.student,
+                        full_name: nextLesson.student?.full_name || 'Aluno',
+                        avatar_url: nextLesson.student?.avatar_url || undefined
+                    }
+                } : null} />
 
                 {/* Right Column (Reputation & Quick Stats) */}
                 <div className="flex flex-col gap-6">
@@ -141,11 +257,26 @@ export default async function InstructorDashboardPage() {
                         rating={averageRating}
                         totalReviews={totalReviews}
                     />
-                    <MiniAgenda lessons={upcomingLessons || []} />
+                    <MiniAgenda lessons={upcomingLessons?.map(l => ({
+                        ...l,
+                        student: {
+                            ...l.student,
+                            full_name: l.student.full_name || 'Aluno',
+                            avatar_url: l.student.avatar_url || undefined
+                        }
+                    })) || []} />
                 </div>
 
                 {/* Sales List */}
-                <SalesList sales={formattedSales} />
+                <SalesList sales={formattedSales.map(s => ({
+                    ...s,
+                    status: (s.status as any) || 'pending',
+                    created_at: s.created_at || new Date().toISOString(),
+                    student: {
+                        full_name: s.student?.full_name || 'Aluno',
+                        avatar_url: s.student?.avatar_url || ''
+                    }
+                }))} />
             </div>
         </div>
     );

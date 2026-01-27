@@ -42,6 +42,7 @@ export function DocumentVisualizer({ documentUrl, documentType }: DocumentVisual
                                 Seu navegador não suporta a tag de vídeo.
                             </video>
                         ) : (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                                 alt={`Document: ${documentType}`}
                                 className="object-contain max-h-[80vh] max-w-full"
@@ -70,7 +71,7 @@ export function DocumentVisualizer({ documentUrl, documentType }: DocumentVisual
                 <div className="w-px h-4 bg-white/20"></div>
                 <button
                     onClick={handleReset}
-                    className="p-2 text-white hover:text-[#137fec] hover:bg-white/10 rounded-full transition-colors tooltip-trigger"
+                    className="p-2 text-white hover:text-brand-cta hover:bg-white/10 rounded-full transition-colors tooltip-trigger"
                     title="Reset View"
                 >
                     <span className="text-xs font-mono font-medium">

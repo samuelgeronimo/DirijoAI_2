@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import Image from "next/image";
 import { DocumentVisualizer } from "./DocumentVisualizer";
 
 // Local types for now, or import from central types
@@ -365,7 +366,13 @@ export function ApprovalsWorkflow({ instructors: initialInstructors }: Approvals
                                                     onClick={() => setOverrideImage({ url: vehicle.photo_url!, type: 'Foto Principal' })}
                                                     className="aspect-square rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden hover:ring-2 hover:ring-[#137fec] transition-all relative"
                                                 >
-                                                    <img src={vehicle.photo_url} className="w-full h-full object-cover" />
+                                                    <Image
+                                                        src={vehicle.photo_url}
+                                                        alt="Foto principal do veículo"
+                                                        fill
+                                                        className="object-cover"
+                                                        sizes="100px"
+                                                    />
                                                 </button>
                                             )}
                                             {/* Array photos */}
@@ -375,7 +382,13 @@ export function ApprovalsWorkflow({ instructors: initialInstructors }: Approvals
                                                     onClick={() => setOverrideImage({ url, type: `Foto do Veículo ${idx + 1}` })}
                                                     className="aspect-square rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden hover:ring-2 hover:ring-[#137fec] transition-all relative"
                                                 >
-                                                    <img src={url} className="w-full h-full object-cover" />
+                                                    <Image
+                                                        src={url}
+                                                        alt={`Foto do veículo ${idx + 1}`}
+                                                        fill
+                                                        className="object-cover"
+                                                        sizes="100px"
+                                                    />
                                                 </button>
                                             ))}
                                             {(!vehicle.photo_urls || vehicle.photo_urls.length === 0) && !vehicle['photo_url' as keyof Vehicle] && (
@@ -440,7 +453,13 @@ export function ApprovalsWorkflow({ instructors: initialInstructors }: Approvals
                                                 className="group flex gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1e2936] hover:border-[#137fec] hover:ring-1 hover:ring-[#137fec] transition-all cursor-pointer"
                                             >
                                                 <div className="size-16 rounded-md overflow-hidden shrink-0 bg-slate-100">
-                                                    <img src={story.photo_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                    <Image
+                                                        src={story.photo_url}
+                                                        alt={story.student_name}
+                                                        fill
+                                                        className="object-cover group-hover:scale-105 transition-transform"
+                                                        sizes="64px"
+                                                    />
                                                 </div>
                                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                     <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{story.student_name}</p>

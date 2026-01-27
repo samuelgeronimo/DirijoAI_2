@@ -1,10 +1,11 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface Sale {
     id: string;
     plan_name: string;
+    lessons_count: number;
     amount_cents: number;
     status: string;
     created_at: string;
@@ -20,6 +21,20 @@ interface SalesListProps {
 }
 
 export function SalesList({ sales }: SalesListProps) {
+    const [platformTakeRate, setPlatformTakeRate] = useState(15); // Default 15%
+
+    useEffect(() => {
+        // Fetch platform take rate
+        fetch('/api/platform-settings')
+            .then(res => res.json())
+            .then(data => {
+                if (data.take_rate) setPlatformTakeRate(data.take_rate);
+            })
+            .catch(() => {
+                // Fallback to default
+            });
+    }, []);
+
     const fmtMoney = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('pt-BR');
 
@@ -46,39 +61,51 @@ export function SalesList({ sales }: SalesListProps) {
                             <th className="px-4 py-3 rounded-l-lg">Data</th>
                             <th className="px-4 py-3">Aluno</th>
                             <th className="px-4 py-3">Pacote</th>
-                            <th className="px-4 py-3">Valor</th>
+                            <th className="px-4 py-3 text-right">Valor Total</th>
+                            <th className="px-4 py-3 text-right">Taxa Plataforma</th>
+                            <th className="px-4 py-3 text-right">Seu Valor</th>
                             <th className="px-4 py-3">Status</th>
                             <th className="px-4 py-3 rounded-r-lg text-right">Ação</th>
                         </tr>
                     </thead>
                     <tbody className="text-gray-300">
-                        {sales.map((sale) => (
-                            <tr key={sale.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
-                                <td className="px-4 py-4 font-medium">{fmtDate(sale.created_at)}</td>
-                                <td className="px-4 py-4 flex items-center gap-2">
-                                    <div className="size-6 rounded-full bg-gray-700" style={{ backgroundImage: `url(${sale.student?.avatar_url})`, backgroundSize: 'cover' }}></div>
-                                    <span>{sale.student?.full_name || 'Aluno'}</span>
-                                </td>
-                                <td className="px-4 py-4">
-                                    <span className="font-bold text-white block">{sale.plan_name}</span>
-                                    {sale.metadata?.manual_included && (
-                                        <span className="text-[10px] bg-yellow-900/30 text-yellow-400 px-1.5 py-0.5 rounded font-bold">+ Manual</span>
-                                    )}
-                                </td>
-                                <td className="px-4 py-4 font-bold text-instructor-primary">{fmtMoney(sale.amount_cents)}</td>
-                                <td className="px-4 py-4">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${sale.status === 'paid' ? 'bg-green-900/30 text-green-400' :
+                        {sales.map((sale) => {
+                            const platformFee = Math.floor(sale.amount_cents * (platformTakeRate / 100));
+                            const instructorNet = sale.amount_cents - platformFee;
+
+                            return (
+                                <tr key={sale.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                                    <td className="px-4 py-4 font-medium">{fmtDate(sale.created_at)}</td>
+                                    <td className="px-4 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="size-6 rounded-full bg-gray-700" style={{ backgroundImage: `url(${sale.student?.avatar_url})`, backgroundSize: 'cover' }}></div>
+                                            <span>{sale.student?.full_name || 'Aluno'}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <span className="font-bold text-white block">{sale.plan_name}</span>
+                                        <span className="text-xs text-gray-400">{sale.lessons_count} aulas</span>
+                                    </td>
+                                    <td className="px-4 py-4 text-right font-semibold text-white">{fmtMoney(sale.amount_cents)}</td>
+                                    <td className="px-4 py-4 text-right text-red-400">
+                                        -{fmtMoney(platformFee)}
+                                        <span className="text-xs text-gray-500 ml-1">({platformTakeRate}%)</span>
+                                    </td>
+                                    <td className="px-4 py-4 text-right font-bold text-instructor-primary">{fmtMoney(instructorNet)}</td>
+                                    <td className="px-4 py-4">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${sale.status === 'paid' ? 'bg-green-900/30 text-green-400' :
                                             sale.status === 'pending' ? 'bg-yellow-900/30 text-yellow-400' :
                                                 'bg-red-900/30 text-red-500'
-                                        }`}>
-                                        {sale.status === 'paid' ? 'Aprovado' : sale.status === 'pending' ? 'Pendente' : 'Cancelado'}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-4 text-right">
-                                    <button className="text-instructor-primary hover:text-white transition-colors font-bold text-xs">Ver Detalhes</button>
-                                </td>
-                            </tr>
-                        ))}
+                                            }`}>
+                                            {sale.status === 'paid' ? 'Aprovado' : sale.status === 'pending' ? 'Pendente' : 'Cancelado'}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-4 text-right">
+                                        <button className="text-instructor-primary hover:text-white transition-colors font-bold text-xs">Ver Detalhes</button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

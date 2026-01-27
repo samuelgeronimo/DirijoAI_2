@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { parseJsonArray, toJson } from "@/types/json-helpers";
+import type { Database } from "@/types/supabase";
+
+type Json = Database['public']['Tables']['profiles']['Row']['saved_addresses'];
 
 interface Address {
     name: string;
@@ -17,12 +21,13 @@ interface Address {
 }
 
 interface AddressListProps {
-    addresses: Address[] | null;
+    addresses: Json;
     profileId: string;
 }
 
-export function AddressList({ addresses = [], profileId }: AddressListProps) {
-    const [savedAddresses, setSavedAddresses] = useState<Address[]>(addresses || []);
+export function AddressList({ addresses = null, profileId }: AddressListProps) {
+    const parsedAddresses = parseJsonArray<Address>(addresses);
+    const [savedAddresses, setSavedAddresses] = useState<Address[]>(parsedAddresses);
     const [isAdding, setIsAdding] = useState(false);
     const [loadingCep, setLoadingCep] = useState(false);
     const supabase = createClient();
@@ -90,7 +95,7 @@ export function AddressList({ addresses = [], profileId }: AddressListProps) {
         setForm({ name: '', zip_code: '', street: '', number: '', complement: '', neighborhood: '', city: '', state: '', type: 'home' });
 
         try {
-            await supabase.from('profiles').update({ saved_addresses: newList }).eq('id', profileId);
+            await supabase.from('profiles').update({ saved_addresses: toJson(newList) }).eq('id', profileId);
         } catch (err) {
             console.error("Error saving address:", err);
             alert("Erro ao salvar endereço. Tente novamente.");
@@ -273,7 +278,7 @@ export function AddressList({ addresses = [], profileId }: AddressListProps) {
                                         if (confirm("Remover este endereço?")) {
                                             const newList = savedAddresses.filter((_, i) => i !== idx);
                                             setSavedAddresses(newList);
-                                            await supabase.from('profiles').update({ saved_addresses: newList }).eq('id', profileId);
+                                            await supabase.from('profiles').update({ saved_addresses: toJson(newList) }).eq('id', profileId);
                                         }
                                     }}
                                 >

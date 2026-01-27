@@ -59,6 +59,15 @@ export async function StudentSidebar() {
                         </Link>
                         <Link
                             className="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            href="/student/reviews"
+                        >
+                            <span className="material-symbols-outlined">star</span>
+                            <span className="text-sm font-medium leading-normal">
+                                Avaliar Instrutor
+                            </span>
+                        </Link>
+                        <Link
+                            className="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                             href="/student/schedule"
                         >
                             <span className="material-symbols-outlined">calendar_month</span>
@@ -82,6 +91,6 @@ export async function StudentSidebar() {
             <div className="p-4">
                 <SignOutButton />
             </div>
-        </div>
+        </div >
     );
 }

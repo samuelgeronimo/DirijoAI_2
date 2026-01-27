@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatTime } from "@/utils/instructorMetrics";
+import StartLessonButton from "./StartLessonButton";
 
 interface Lesson {
     id: string;
@@ -11,6 +12,8 @@ interface Lesson {
     student?: {
         full_name: string;
         avatar_url?: string;
+        preferences?: any;
+        saved_addresses?: any[];
     };
 }
 
@@ -53,12 +56,50 @@ export function NextMission({ lesson }: NextMissionProps) {
     const studentName = lesson.student?.full_name || 'Aluno';
     const studentFirstName = studentName.split(' ')[0];
     const avatarUrl = lesson.student?.avatar_url || 'https://via.placeholder.com/150';
-    const address = lesson.pickup_address || 'Endereço não informado';
+
+    // Address Logic: Check for home pickup preference
+    const studentPreferences = lesson.student?.preferences as any;
+    const isHomePickup = studentPreferences?.home_pickup === true;
+
+    let address = lesson.pickup_address || 'Endereço não informado';
+
+    if (isHomePickup && lesson.student?.saved_addresses && lesson.student.saved_addresses.length > 0) {
+        const savedAddrs = lesson.student.saved_addresses as any[];
+        const homeAddr = savedAddrs.find(a => a.type === 'home') || savedAddrs[0];
+        if (homeAddr) {
+            address = homeAddr.address || `${homeAddr.street}, ${homeAddr.number}${homeAddr.complement ? ' - ' + homeAddr.complement : ''} - ${homeAddr.neighborhood}, ${homeAddr.city} - ${homeAddr.state}`;
+        }
+    }
 
     // Generate Waze URL if coordinates are available
     const wazeUrl = lesson.pickup_lat && lesson.pickup_lng
         ? `https://waze.com/ul?ll=${lesson.pickup_lat},${lesson.pickup_lng}&navigate=yes`
         : '#';
+
+    // Date Badge Logic
+    const now = new Date();
+    const isToday = scheduledDate.getDate() === now.getDate() &&
+        scheduledDate.getMonth() === now.getMonth() &&
+        scheduledDate.getFullYear() === now.getFullYear();
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = scheduledDate.getDate() === tomorrow.getDate() &&
+        scheduledDate.getMonth() === tomorrow.getMonth() &&
+        scheduledDate.getFullYear() === tomorrow.getFullYear();
+
+    let badgeText = "";
+    let badgeColorClass = "bg-instructor-primary/90 text-instructor-bg-dark"; // Default Green for Today
+
+    if (isToday) {
+        badgeText = "Hoje";
+    } else if (isTomorrow) {
+        badgeText = "Amanhã";
+        badgeColorClass = "bg-yellow-500/90 text-white";
+    } else {
+        badgeText = scheduledDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        badgeColorClass = "bg-gray-700/90 text-gray-200";
+    }
 
     return (
         <div className="xl:col-span-2 flex flex-col gap-6">
@@ -78,6 +119,13 @@ export function NextMission({ lesson }: NextMissionProps) {
                     }}
                 >
                     <div className="absolute inset-0 bg-gradient-to-b from-transparent to-instructor-surface-dark"></div>
+
+                    {/* Date Badge */}
+                    <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-lg backdrop-blur-md ${badgeColorClass}`}>
+                        <span className="material-symbols-outlined text-sm font-bold">calendar_today</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">{badgeText}</span>
+                    </div>
+
                     <div className="absolute top-4 right-4 flex gap-2">
                         <a
                             href={wazeUrl}
@@ -125,7 +173,7 @@ export function NextMission({ lesson }: NextMissionProps) {
                                     <span className="material-symbols-outlined text-instructor-primary font-light text-lg">
                                         pin_drop
                                     </span>
-                                    <span className="truncate max-w-[300px]">{address}</span>
+                                    <span className="leading-relaxed">{address}</span>
                                 </div>
                             </div>
                         </div>
@@ -147,15 +195,7 @@ export function NextMission({ lesson }: NextMissionProps) {
                             </div>
                         </div>
                     )}
-                    <Link
-                        href="/instructor/active-lesson"
-                        className="w-full bg-instructor-primary hover:bg-instructor-primary-hover text-instructor-bg-dark text-lg font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(19,236,91,0.2)] hover:shadow-[0_0_40px_rgba(19,236,91,0.4)] hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-3 cursor-pointer"
-                    >
-                        <span className="material-symbols-outlined fill-current">
-                            play_circle
-                        </span>
-                        INICIAR AULA
-                    </Link>
+                    <StartLessonButton lessonId={lesson.id} />
                 </div>
             </div>
         </div>

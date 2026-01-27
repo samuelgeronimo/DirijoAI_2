@@ -3,7 +3,11 @@ import { FinanceStats } from "@/components/admin/finance/FinanceStats";
 import { GodModePanel } from "@/components/admin/finance/GodModePanel";
 import { PayoutRequestsTable } from "@/components/admin/finance/PayoutRequestsTable";
 
-export default function AdminFinancePage() {
+import { getPlatformTakeRate } from "@/app/admin/actions";
+
+export default async function AdminFinancePage() {
+    const currentRate = await getPlatformTakeRate();
+
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-[#f6f7f8] dark:bg-[#101922]">
             {/* TopNavBar */}
@@ -21,7 +25,7 @@ export default function AdminFinancePage() {
                         <PayoutRequestsTable />
 
                         {/* Right Column: God Mode Panel */}
-                        <GodModePanel />
+                        <GodModePanel initialRate={currentRate} />
                     </div>
                 </div>
             </div>

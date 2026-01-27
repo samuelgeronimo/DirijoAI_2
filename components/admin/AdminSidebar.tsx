@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "@/app/auth/actions";
 
 export function AdminSidebar() {
     const pathname = usePathname();
@@ -75,12 +76,15 @@ export function AdminSidebar() {
                 </nav>
             </div>
             <div className="p-4 border-t border-[#233648]">
-                <div className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-[#233648]/50 rounded-lg transition-colors">
+                <button
+                    onClick={() => signOut()}
+                    className="w-full flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-[#233648]/50 rounded-lg transition-colors border-0"
+                >
                     <div className="size-8 rounded-full bg-[#233648] flex items-center justify-center text-[#92adc9]">
                         <span className="material-symbols-outlined text-sm">logout</span>
                     </div>
                     <p className="text-[#92adc9] text-sm font-medium">Logout</p>
-                </div>
+                </button>
             </div>
         </aside>
     );

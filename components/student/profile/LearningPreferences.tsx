@@ -2,25 +2,44 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { parseJsonObject, parseJsonArray, toJson } from "@/types/json-helpers";
+import type { Database } from "@/types/supabase";
+
+type Json = Database['public']['Tables']['profiles']['Row']['preferences'];
 
 interface LearningPreferencesProps {
-    preferences: Record<string, boolean> | null;
+    preferences: Json;
     profileId: string;
+    addresses?: Json;
 }
 
-export function LearningPreferences({ preferences = {}, profileId }: LearningPreferencesProps) {
+export function LearningPreferences({ preferences = null, profileId, addresses = null }: LearningPreferencesProps) {
+    // Parse Json types safely
+    const parsedPrefs = parseJsonObject<Record<string, boolean>>(preferences);
+    const parsedAddresses = parseJsonArray(addresses);
+
     // Default config ensuring we handle null/undefined
     const [prefs, setPrefs] = useState<Record<string, boolean>>({
         fear_highway: false,
         silent_instructor: false,
         intensive_classes: false,
         nervous_driver: true,
-        ...preferences
+        home_pickup: false,
+        ...parsedPrefs
     });
 
     const supabase = createClient();
 
     const handleToggle = async (key: string, value: boolean) => {
+        // Validation for home pickup: must have at least one address
+        if (key === 'home_pickup' && value === true) {
+            const hasAddresses = parsedAddresses && parsedAddresses.length > 0;
+            if (!hasAddresses) {
+                alert("Para ativar a busca em casa, você precisa cadastrar pelo menos um endereço favorito primeiro.");
+                return;
+            }
+        }
+
         const newPrefs = { ...prefs, [key]: value };
         setPrefs(newPrefs);
 
@@ -28,7 +47,7 @@ export function LearningPreferences({ preferences = {}, profileId }: LearningPre
         try {
             await supabase
                 .from('profiles')
-                .update({ preferences: newPrefs })
+                .update({ preferences: toJson(newPrefs) })
                 .eq('id', profileId);
         } catch (err) {
             console.error("Error saving preferences:", err);
@@ -52,6 +71,16 @@ export function LearningPreferences({ preferences = {}, profileId }: LearningPre
                     </div>
                 </div>
                 <div className="space-y-6">
+                    {/* Home Pickup Preference */}
+                    <PreferenceItem
+                        icon="home"
+                        iconColor="text-student-primary bg-blue-50 dark:bg-blue-900/20"
+                        title="Buscar em casa"
+                        description="Prefiro que o instrutor me busque em um dos meus endereços cadastrados."
+                        checked={prefs.home_pickup}
+                        onChange={(v: boolean) => handleToggle('home_pickup', v)}
+                    />
+
                     {/* Toggle Item 1 */}
                     <PreferenceItem
                         icon="warning"

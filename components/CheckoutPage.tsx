@@ -9,6 +9,8 @@ interface Instructor {
     rating: number;
     bio: string;
     service_city: string;
+    service_mode: string;
+    meeting_point_name: string | null;
     profiles: {
         full_name: string;
         avatar_url: string;
@@ -40,6 +42,8 @@ export default function CheckoutPage() {
                     rating,
                     bio,
                     service_city,
+                    service_mode,
+                    meeting_point_name,
                     profiles!instructors_id_fkey(full_name, avatar_url),
                     instructor_availability(hourly_rate_cents)
                 `)
@@ -52,9 +56,13 @@ export default function CheckoutPage() {
 
                 // Determine base price (take the highest rate found or default)
                 if (data.instructor_availability && data.instructor_availability.length > 0) {
-                    const rates = data.instructor_availability.map((a: { hourly_rate_cents: number }) => a.hourly_rate_cents);
-                    const maxRate = Math.max(...rates);
-                    setBasePrice(maxRate / 100); // Convert cents to Real
+                    const rates = data.instructor_availability
+                        .map((a: { hourly_rate_cents: number | null }) => a.hourly_rate_cents)
+                        .filter((rate): rate is number => rate !== null);
+                    if (rates.length > 0) {
+                        const maxRate = Math.max(...rates);
+                        setBasePrice(maxRate / 100); // Convert cents to Real
+                    }
                 }
             } else if (error) {
                 console.error('Error fetching instructor:', error);
@@ -65,9 +73,9 @@ export default function CheckoutPage() {
         fetchInstructor();
     }, [instructorId]);
 
-    // Derived prices
-    const price10Class = basePrice * 10 - 100; // Mock discount logic: 10 classes - R$100 discount
-    const price20Class = basePrice * 20 - 300; // Mock discount logic: 20 classes - R$300 discount
+    // Package prices (no discounts)
+    const price10Class = basePrice * 10;
+    const price20Class = basePrice * 20;
 
     // Formatting helper
     const fmtMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -104,8 +112,8 @@ export default function CheckoutPage() {
             const { data: order, error: orderError } = await supabase
                 .from('orders')
                 .insert({
-                    student_id: user.id,
-                    instructor_id: instructorId,
+                    student_id: user.id as string,
+                    instructor_id: instructorId as string,
                     plan_name: planDetails.name,
                     lessons_count: planDetails.lessons,
                     amount_cents: Math.round(totalPrice * 100),
@@ -148,8 +156,8 @@ export default function CheckoutPage() {
                 const { error: lessonError } = await supabase
                     .from('lessons')
                     .insert({
-                        student_id: user.id,
-                        instructor_id: instructorId,
+                        student_id: user.id as string,
+                        instructor_id: instructorId as string,
                         scheduled_at: scheduledAt.toISOString(),
                         price_cents: unitPriceCents,
                         status: 'scheduled',
@@ -286,6 +294,31 @@ export default function CheckoutPage() {
                                         <p className="text-[#0d141b] dark:text-white font-medium">{instructor?.service_city || 'São Paulo'}</p>
                                     </div>
                                 </div>
+
+                                {/* Service Mode Info */}
+                                {(instructor?.service_mode === 'student_home' || instructor?.service_mode === 'both') ? (
+                                    <div className="flex gap-3">
+                                        <div className="size-8 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                                            <span className="material-symbols-outlined text-green-600 text-[20px]">home</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[#4c739a] dark:text-slate-400 text-xs uppercase font-bold">Como funciona</p>
+                                            <p className="text-[#0d141b] dark:text-white font-medium">Vou até você</p>
+                                        </div>
+                                    </div>
+                                ) : instructor?.service_mode === 'meeting_point' && (
+                                    <div className="flex gap-3">
+                                        <div className="size-8 rounded-full bg-yellow-50 dark:bg-yellow-900/30 flex items-center justify-center shrink-0">
+                                            <span className="material-symbols-outlined text-yellow-600 text-[20px]">location_on</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[#4c739a] dark:text-slate-400 text-xs uppercase font-bold">Como funciona</p>
+                                            <p className="text-[#0d141b] dark:text-white font-medium">
+                                                Me encontre em: <span className="font-bold">{instructor.meeting_point_name || "Ponto de Encontro"}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="w-full h-24 rounded-lg bg-slate-100 dark:bg-slate-800 bg-cover bg-center overflow-hidden relative border border-slate-200 dark:border-slate-700" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD8LimDaTTX-xOBPmAGJmGKHuhTTxVYj_xckPezkro2pUOnFiaCooAufKJdgku_oEP_38TM1piWbbYeY85r62_tT6U_oBoSV-cwihZ-GJsafyBPVqKZv_W74MITUFXz75YbbZRG1TVC8OtiYQE7riNcKO62vcQDq2bqrhVv1D9DeOS5WV9xYpCa-DDH30Ed-3JrxU6jnPluAKgSY7ZEGpkjsTLai4PHNjJuAUIKFLfiK_vcNtWdnAEVjG2-GADgW3fYtNBGUK5NCIHH")' }}>
                                     <div className="absolute inset-0 bg-black/5 flex items-center justify-center">
                                         <span className="material-symbols-outlined text-red-500 text-3xl drop-shadow-md">location_on</span>
@@ -309,12 +342,7 @@ export default function CheckoutPage() {
                                         <p className="font-bold text-[#0d141b] dark:text-white">{fmtMoney(basePrice * planDetails.lessons)}</p>
                                     </div>
                                 </div>
-                                {planDetails.price < (basePrice * planDetails.lessons) && (
-                                    <div className="flex justify-between items-center text-sm text-green-600 dark:text-green-400">
-                                        <span>Desconto aplicado</span>
-                                        <span>- {fmtMoney((basePrice * planDetails.lessons) - planDetails.price)}</span>
-                                    </div>
-                                )}
+
                                 {addManual && (
                                     <div className="flex justify-between items-center text-sm text-yellow-600 dark:text-yellow-400">
                                         <span>Manual Anti-Reprovação</span>
@@ -385,14 +413,10 @@ export default function CheckoutPage() {
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <div className="text-[#137fec] text-sm font-bold uppercase tracking-wider">Recomendado</div>
                                                 </div>
-                                                <div className="text-lg font-bold text-[#137fec] mb-1">Pacote 10 Aulas</div>
-                                                <div className="inline-block bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold px-2 py-0.5 rounded mb-3">
-                                                    Economia de R$ 100
-                                                </div>
+                                                <div className="text-lg font-bold text-[#137fec] mb-2">Pacote 10 Aulas</div>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Perfeito para quem quer evoluir rápido.</p>
                                             </div>
                                             <div className="mt-2">
-                                                <div className="text-sm text-slate-400 line-through font-medium">{fmtMoney(basePrice * 10)}</div>
                                                 <span className="text-3xl font-black text-[#137fec]">{fmtMoney(price10Class)}</span>
                                                 <span className="text-xs text-slate-500 block">{fmtMoney(price10Class / 10)}/aula</span>
                                             </div>

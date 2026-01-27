@@ -1,125 +1,107 @@
-export function SkillsList() {
+interface SkillsListProps {
+    skills: {
+        clutchControl: number;
+        spatialAwareness: number;
+        lawRespect: number;
+    } | null;
+}
+
+export function SkillsList({ skills }: SkillsListProps) {
+    if (!skills) {
+        return (
+            <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
+                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-xl text-center text-slate-500">
+                    Ainda não há dados suficientes para gerar o gráfico de habilidades.
+                </div>
+            </div>
+        );
+    }
+
+    // Helper to determine status color/text
+    const getStatus = (val: number) => {
+        const pct = val * 10;
+        if (val >= 8) return { text: "Excelente", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/30", bar: "bg-emerald-500", icon: "check_circle", iconColor: "text-emerald-500" };
+        if (val >= 5) return { text: "Bom", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/30", bar: "bg-amber-400", icon: "warning", iconColor: "text-amber-500" };
+        return { text: "Crítico", color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-900/30", bar: "bg-rose-500", icon: "error", iconColor: "text-rose-500" };
+    };
+
+    const clutch = getStatus(skills.clutchControl);
+    const space = getStatus(skills.spatialAwareness);
+    const laws = getStatus(skills.lawRespect);
+
     return (
         <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
-            {/* Skill Item: Embreagem (Green) */}
+            {/* Skill Item: Embreagem */}
             <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-emerald-500">
-                            check_circle
+                        <span className={`material-symbols-outlined ${clutch.iconColor}`}>
+                            {clutch.icon}
                         </span>
                         <p className="text-slate-900 dark:text-white text-base font-semibold">
                             Controle de Embreagem
                         </p>
                     </div>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded">
-                        Excelente
+                    <span className={`${clutch.color} font-bold text-sm ${clutch.bg} px-2 py-1 rounded`}>
+                        {clutch.text}
                     </span>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex-1 rounded-full bg-slate-100 dark:bg-slate-700 h-3 overflow-hidden">
-                        <div className="h-full rounded-full bg-emerald-500 w-[90%] shadow-[0_0_10px_rgba(16,185,129,0.4)]"></div>
+                        <div className={`h-full rounded-full ${clutch.bar}`} style={{ width: `${skills.clutchControl * 10}%` }}></div>
                     </div>
                     <p className="text-slate-700 dark:text-slate-300 text-sm font-bold min-w-[3ch]">
-                        90%
+                        {Math.round(skills.clutchControl * 10)}%
                     </p>
                 </div>
             </div>
-            {/* Skill Item: Noção de Espaço (Green) */}
+
+            {/* Skill Item: Noção de Espaço */}
             <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-emerald-500">
-                            check_circle
+                        <span className={`material-symbols-outlined ${space.iconColor}`}>
+                            {space.icon}
                         </span>
                         <p className="text-slate-900 dark:text-white text-base font-semibold">
                             Noção de Espaço
                         </p>
                     </div>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded">
-                        Muito Bom
+                    <span className={`${space.color} font-bold text-sm ${space.bg} px-2 py-1 rounded`}>
+                        {space.text}
                     </span>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex-1 rounded-full bg-slate-100 dark:bg-slate-700 h-3 overflow-hidden">
-                        <div className="h-full rounded-full bg-emerald-500 w-[85%] shadow-[0_0_10px_rgba(16,185,129,0.4)]"></div>
+                        <div className={`h-full rounded-full ${space.bar}`} style={{ width: `${skills.spatialAwareness * 10}%` }}></div>
                     </div>
                     <p className="text-slate-700 dark:text-slate-300 text-sm font-bold min-w-[3ch]">
-                        85%
+                        {Math.round(skills.spatialAwareness * 10)}%
                     </p>
                 </div>
             </div>
-            {/* Skill Item: Regras de Trânsito (Yellow) */}
+
+            {/* Skill Item: Regras de Trânsito */}
             <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-amber-500">
-                            warning
+                        <span className={`material-symbols-outlined ${laws.iconColor}`}>
+                            {laws.icon}
                         </span>
                         <p className="text-slate-900 dark:text-white text-base font-semibold">
                             Regras de Trânsito
                         </p>
                     </div>
-                    <span className="text-amber-600 dark:text-amber-400 font-bold text-sm bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">
-                        Atenção
+                    <span className={`${laws.color} font-bold text-sm ${laws.bg} px-2 py-1 rounded`}>
+                        {laws.text}
                     </span>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex-1 rounded-full bg-slate-100 dark:bg-slate-700 h-3 overflow-hidden">
-                        <div className="h-full rounded-full bg-amber-400 w-[60%] shadow-[0_0_10px_rgba(251,191,36,0.4)]"></div>
+                        <div className={`h-full rounded-full ${laws.bar}`} style={{ width: `${skills.lawRespect * 10}%` }}></div>
                     </div>
                     <p className="text-slate-700 dark:text-slate-300 text-sm font-bold min-w-[3ch]">
-                        60%
-                    </p>
-                </div>
-            </div>
-            {/* Skill Item: Baliza (Red - Critical) */}
-            <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border-2 border-rose-100 dark:border-rose-900/50 flex flex-col gap-3 relative overflow-hidden group">
-                {/* Visual indicator stripe */}
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-rose-500"></div>
-                <div className="flex justify-between items-center pl-2">
-                    <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-rose-500 animate-pulse">
-                            error
-                        </span>
-                        <p className="text-slate-900 dark:text-white text-base font-semibold">
-                            Baliza
-                        </p>
-                    </div>
-                    <span className="text-rose-600 dark:text-rose-400 font-bold text-sm bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded">
-                        Crítico
-                    </span>
-                </div>
-                <div className="flex items-center gap-4 pl-2">
-                    <div className="flex-1 rounded-full bg-slate-100 dark:bg-slate-700 h-3 overflow-hidden">
-                        <div className="h-full rounded-full bg-rose-500 w-[30%] shadow-[0_0_10px_rgba(244,63,94,0.4)]"></div>
-                    </div>
-                    <p className="text-slate-700 dark:text-slate-300 text-sm font-bold min-w-[3ch]">
-                        30%
-                    </p>
-                </div>
-            </div>
-            {/* Skill Item: Ladeira (Yellow) */}
-            <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col gap-3">
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-amber-500">
-                            warning
-                        </span>
-                        <p className="text-slate-900 dark:text-white text-base font-semibold">
-                            Ladeira
-                        </p>
-                    </div>
-                    <span className="text-amber-600 dark:text-amber-400 font-bold text-sm bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">
-                        Praticar mais
-                    </span>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex-1 rounded-full bg-slate-100 dark:bg-slate-700 h-3 overflow-hidden">
-                        <div className="h-full rounded-full bg-amber-400 w-[55%] shadow-[0_0_10px_rgba(251,191,36,0.4)]"></div>
-                    </div>
-                    <p className="text-slate-700 dark:text-slate-300 text-sm font-bold min-w-[3ch]">
-                        55%
+                        {Math.round(skills.lawRespect * 10)}%
                     </p>
                 </div>
             </div>

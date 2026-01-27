@@ -7,8 +7,8 @@ interface Order {
     plan_name: string;
     lessons_count: number;
     amount_cents: number;
-    status: string;
-    created_at: string;
+    status: string | null;
+    created_at: string | null;
     metadata: any;
 }
 
@@ -51,7 +51,7 @@ export function OrderHistoryList({ orders }: OrderHistoryListProps) {
                     <tbody className="text-slate-600 dark:text-slate-300">
                         {orders.map((order) => (
                             <tr key={order.id} className="border-b border-slate-100 dark:border-slate-700 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                <td className="px-4 py-4 font-medium">{fmtDate(order.created_at)}</td>
+                                <td className="px-4 py-4 font-medium">{order.created_at ? fmtDate(order.created_at) : 'N/A'}</td>
                                 <td className="px-4 py-4">
                                     <span className="font-bold text-slate-900 dark:text-white block">{order.plan_name}</span>
                                     {order.metadata?.manual_included && (
@@ -61,11 +61,11 @@ export function OrderHistoryList({ orders }: OrderHistoryListProps) {
                                 <td className="px-4 py-4">{order.lessons_count}</td>
                                 <td className="px-4 py-4 font-bold text-slate-900 dark:text-white">{fmtMoney(order.amount_cents)}</td>
                                 <td className="px-4 py-4">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${order.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                'bg-red-100 text-red-700'
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${(order.status || 'pending') === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                        (order.status || 'pending') === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                            'bg-red-100 text-red-700'
                                         }`}>
-                                        {order.status === 'paid' ? 'Pago' : order.status === 'pending' ? 'Pendente' : 'Cancelado'}
+                                        {(order.status || 'pending') === 'paid' ? 'Pago' : (order.status || 'pending') === 'pending' ? 'Pendente' : 'Cancelado'}
                                     </span>
                                 </td>
                                 <td className="px-4 py-4 text-right">

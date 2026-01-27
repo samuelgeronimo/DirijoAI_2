@@ -85,7 +85,11 @@ export default async function StudentProfilePage() {
             {/* Profile & Personal Data Section */}
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <StudentProfileForm profile={profile} />
-                <LearningPreferences preferences={profile.preferences} profileId={profile.id} />
+                <LearningPreferences
+                    preferences={profile.preferences}
+                    profileId={profile.id}
+                    addresses={profile.saved_addresses}
+                />
                 <AddressList addresses={profile.saved_addresses} profileId={profile.id} />
             </section>
 

@@ -3,10 +3,21 @@
 import { createClient } from "@/utils/supabase/client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { VEHICLE_FEATURES_STANDARD } from "@/utils/vehicleFeatures";
 
 interface VehicleFormProps {
-    initialData?: any;
+    initialData?: {
+        id?: string;
+        brand?: string;
+        model?: string;
+        year?: string;
+        plate?: string;
+        color?: string;
+        transmission?: string;
+        features?: string[];
+        photo_urls?: string[];
+    };
     instructorId: string;
 }
 
@@ -74,7 +85,8 @@ export function VehicleForm({ initialData, instructorId }: VehicleFormProps) {
 
             setMessage({ type: 'success', text: 'Fotos convertidas e carregadas. Lembre-se de salvar.' });
         } catch (error: any) {
-            setMessage({ type: 'error', text: 'Erro ao fazer upload das fotos: ' + error.message });
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            setMessage({ type: 'error', text: 'Erro ao fazer upload das fotos: ' + errorMessage });
         } finally {
             setUploading(false);
             // Clear input
@@ -98,6 +110,7 @@ export function VehicleForm({ initialData, instructorId }: VehicleFormProps) {
             const vehicleData = {
                 instructor_id: instructorId,
                 ...formData,
+                year: Number(formData.year),
                 photo_url: formData.photo_urls[0] || null,
                 updated_at: new Date().toISOString(),
             };
@@ -116,7 +129,8 @@ export function VehicleForm({ initialData, instructorId }: VehicleFormProps) {
             setMessage({ type: 'success', text: 'Veículo salvo com sucesso!' });
             router.refresh();
         } catch (error: any) {
-            setMessage({ type: 'error', text: error.message || 'Erro ao salvar veículo.' });
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            setMessage({ type: 'error', text: errorMessage || 'Erro ao salvar veículo.' });
         } finally {
             setLoading(false);
         }
@@ -137,7 +151,13 @@ export function VehicleForm({ initialData, instructorId }: VehicleFormProps) {
                     {/* Photo List */}
                     {formData.photo_urls?.map((url: string, index: number) => (
                         <div key={index} className="relative aspect-video rounded-xl overflow-hidden border border-white/10 group">
-                            <img src={url} alt={`Veículo ${index + 1}`} className="w-full h-full object-cover" />
+                            <Image
+                                src={url}
+                                alt={`Veículo ${index + 1}`}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 768px) 100vw, 300px"
+                            />
                             <button
                                 type="button"
                                 onClick={() => removePhoto(index)}

@@ -18,10 +18,10 @@ export default async function StudentDashboardPage() {
         .eq('id', user.id)
         .single();
 
-    // 2. Fetch Completed Lessons Count
-    const { count: completedLessons } = await supabase
+    // 2. Fetch Completed Lessons Count & Scores
+    const { data: completedLessonsData, count: completedLessons } = await supabase
         .from('lessons')
-        .select('*', { count: 'exact', head: true })
+        .select('instructor_score', { count: 'exact', head: false })
         .eq('student_id', user.id)
         .eq('status', 'completed');
 
@@ -90,7 +90,17 @@ export default async function StudentDashboardPage() {
     // Balance = Total Purchased - All Created (Scheduled/Completed/etc)
     const balance = Math.max(0, totalLessonsTarget - safeTotalCreatedLessons);
 
-    const confidenceLevel = Math.min(100, Math.round((safeCompletedLessons / totalLessonsTarget) * 100));
+    // Calculate Confidence: Average of Instructor Scores (if available), else Progress Ratio
+    let confidenceLevel = 0;
+    const scores = completedLessonsData?.map(l => l.instructor_score).filter(s => s !== null && s !== undefined) as number[] || [];
+
+    if (scores.length > 0) {
+        const sum = scores.reduce((a, b) => a + b, 0);
+        confidenceLevel = Math.round(sum / scores.length);
+    } else {
+        // Fallback to progress ratio if no scores yet
+        confidenceLevel = totalLessonsTarget > 0 ? Math.min(100, Math.round((safeCompletedLessons / totalLessonsTarget) * 100)) : 0;
+    }
 
     let nextLesson = null;
 

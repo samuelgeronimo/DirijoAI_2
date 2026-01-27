@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface DocumentFile {
     id: string; // Unique temp ID for React keys
@@ -230,7 +231,13 @@ export default function InstructorOnboardingSuccess() {
                                             </button>
 
                                             <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900">
-                                                <img src={fileObj.previewUrl} className="w-full h-full object-cover" alt="Preview" />
+                                                <Image
+                                                    src={fileObj.previewUrl}
+                                                    alt="Preview"
+                                                    fill
+                                                    className="object-cover"
+                                                    unoptimized
+                                                />
                                                 {fileObj.status === 'uploading' && (
                                                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-200">
                                                         <div className="h-full bg-green-500 animate-pulse w-full"></div>

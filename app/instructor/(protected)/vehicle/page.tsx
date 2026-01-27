@@ -14,9 +14,9 @@ export default async function InstructorVehiclePage() {
         return redirect("/instructor/login");
     }
 
-    const { data: profile, error } = await supabase
+    const { data: instructor, error } = await supabase
         .from("instructors")
-        .select("id")
+        .select("id, status")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -24,15 +24,20 @@ export default async function InstructorVehiclePage() {
         console.error("Error fetching instructor profile:", error);
     }
 
-    if (!profile) {
+    if (!instructor) {
         console.log("No profile found for user:", user.id);
         return redirect("/instructor/onboarding");
+    }
+
+    // Check if instructor is approved - redirect to confirmation if not
+    if (instructor.status !== 'active') {
+        redirect('/instructor/onboarding/confirmation');
     }
 
     const { data: vehicle } = await supabase
         .from("vehicles")
         .select("*")
-        .eq("instructor_id", profile.id)
+        .eq("instructor_id", instructor.id)
         .single();
 
     return (
@@ -67,8 +72,8 @@ export default async function InstructorVehiclePage() {
                 </div>
 
                 <VehicleForm
-                    initialData={vehicle}
-                    instructorId={profile.id}
+                    initialData={vehicle as any}
+                    instructorId={instructor.id}
                 />
             </div>
         </div>

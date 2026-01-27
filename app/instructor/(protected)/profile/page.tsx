@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { BadgesSection } from "@/components/instructor/profile/BadgesSection";
 import { ProfileHeader } from "@/components/instructor/profile/ProfileHeader";
 import { ProfilePreview } from "@/components/instructor/profile/ProfilePreview";
+import { ServicePreferencesSection } from "@/components/instructor/profile/ServicePreferencesSection";
 import { VSLSection } from "@/components/instructor/profile/VSLSection";
 import { WallOfFame } from "@/components/instructor/profile/WallOfFame";
 import { redirect } from "next/navigation";
@@ -18,15 +19,21 @@ export default async function InstructorProfilePage() {
         .from('instructors')
         .select(`
             *,
+            meeting_point_name,
             profiles (*),
             vehicles (*),
             success_stories (*)
         `)
         .eq('id', user.id)
-        .single();
+        .single() as any;
 
     if (!instructor) {
         return <div>Instrutor não encontrado</div>;
+    }
+
+    // Check if instructor is approved - redirect to confirmation if not
+    if (instructor.status !== 'active') {
+        redirect('/instructor/onboarding/confirmation');
     }
 
     // Pass data to components (Types will be mismatched until components are updated)
@@ -39,6 +46,9 @@ export default async function InstructorProfilePage() {
                 <div className="max-w-[800px] mx-auto px-6 py-8 flex flex-col gap-8">
                     {/* @ts-ignore */}
                     <ProfileHeader profile={instructor.profiles} instructor={instructor} />
+
+                    <ServicePreferencesSection instructor={instructor} instructorId={instructor.id} />
+
                     {/* @ts-ignore */}
                     <VSLSection videoUrl={instructor.video_url} instructorId={instructor.id} />
                     {/* @ts-ignore */}

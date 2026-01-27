@@ -21,9 +21,11 @@ export default async function AdminDashboardPage() {
         .order('created_at', { ascending: false })
         .limit(10);
 
-    // Transform for table
+    // Transform for table (status is guaranteed by RLS default)
     const formattedOrders = orders?.map(o => ({
         ...o,
+        status: o.status || 'pending', // Ensure non-null
+        created_at: o.created_at || new Date().toISOString(), // Ensure non-null
         student: o.student,
         instructor: o.instructor
     })) || [];

@@ -2,9 +2,33 @@
 
 import Link from "next/link";
 import { DifficultyChips } from "./DifficultyChips";
-import { PerformanceSliders } from "./PerformanceSliders";
+
+import { useState, useTransition } from "react";
+import { completeLesson } from "@/app/instructor/actions";
+import { PerformanceSliders, SkillsState } from "./PerformanceSliders";
 
 export function FeedbackModal() {
+    const [isPending, startTransition] = useTransition();
+    const [skills, setSkills] = useState<SkillsState>({
+        clutchControl: 8,
+        spatialAwareness: 7,
+        lawRespect: 9
+    });
+
+    const handleComplete = () => {
+        startTransition(async () => {
+            // Calculate Score (Simple Average * 10 => 0-100)
+            const sum = Object.values(skills).reduce((a, b) => a + b, 0);
+            const avg = sum / Object.values(skills).length;
+            const score = Math.round(avg * 10);
+
+            await completeLesson({
+                score,
+                skills: skills as unknown as Record<string, number>
+            });
+        });
+    };
+
     return (
         <div className="relative z-10 w-full max-w-lg bg-white dark:bg-[#1A2E22] rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-white/10 flex flex-col max-h-[90vh]">
             {/* Header Section */}
@@ -29,7 +53,7 @@ export function FeedbackModal() {
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-                <PerformanceSliders />
+                <PerformanceSliders values={skills} onChange={setSkills} />
                 <DifficultyChips />
 
                 {/* Info Note */}
@@ -53,13 +77,20 @@ export function FeedbackModal() {
 
             {/* Footer / Action Area */}
             <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-[#1A2E22] z-20">
-                <Link
-                    href="/instructor/dashboard"
-                    className="w-full flex items-center justify-center gap-2 bg-instructor-primary hover:bg-[#0fae42] text-slate-900 font-bold text-base py-4 px-6 rounded-xl shadow-lg shadow-instructor-primary/20 transition-all transform active:scale-[0.98] cursor-pointer"
+                <button
+                    onClick={handleComplete}
+                    disabled={isPending}
+                    className="w-full flex items-center justify-center gap-2 bg-instructor-primary hover:bg-[#0fae42] text-slate-900 font-bold text-base py-4 px-6 rounded-xl shadow-lg shadow-instructor-primary/20 transition-all transform active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <span className="material-symbols-outlined">payments</span>
-                    Concluir e Liberar Pagamento
-                </Link>
+                    {isPending ? (
+                        <span className="material-symbols-outlined animate-spin">
+                            progress_activity
+                        </span>
+                    ) : (
+                        <span className="material-symbols-outlined">payments</span>
+                    )}
+                    {isPending ? "PROCESSANDO..." : "Concluir e Liberar Pagamento"}
+                </button>
             </div>
         </div>
     );

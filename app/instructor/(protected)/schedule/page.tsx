@@ -10,20 +10,20 @@ import { ScheduleFilters } from "@/components/instructor/schedule/ScheduleFilter
 import { useScheduleNavigation } from "@/hooks/useScheduleNavigation";
 import { calculateTrend } from "@/utils/scheduleHelpers";
 
-interface Lesson {
+interface LessonData {
     id: string;
     scheduled_at: string;
-    duration_minutes: number;
-    status: string;
+    duration_minutes: number | null;
+    status: string | null;
     price_cents: number;
     student?: {
-        full_name: string;
-        avatar_url?: string;
+        full_name: string | null;
+        avatar_url?: string | null;
     };
-    pickup_address?: string;
-    student_notes?: string;
-    pickup_lat?: number;
-    pickup_lng?: number;
+    pickup_address?: string | null;
+    student_notes?: string | null;
+    pickup_lat?: number | null;
+    pickup_lng?: number | null;
 }
 
 export default function InstructorSchedulePage() {
@@ -38,10 +38,10 @@ export default function InstructorSchedulePage() {
         weekDays,
     } = useScheduleNavigation();
 
-    const [lessons, setLessons] = useState<Lesson[]>([]);
-    const [previousWeekLessons, setPreviousWeekLessons] = useState<Lesson[]>([]);
+    const [lessons, setLessons] = useState<LessonData[]>([]);
+    const [previousWeekLessons, setPreviousWeekLessons] = useState<LessonData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+    const [selectedLesson, setSelectedLesson] = useState<any>(null); // Using any to avoid type conflict with component
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
@@ -55,6 +55,18 @@ export default function InstructorSchedulePage() {
 
             const { data: user } = await supabase.auth.getUser();
             if (!user.user) return;
+
+            // Check instructor status
+            const { data: instructor } = await supabase
+                .from('instructors')
+                .select('status')
+                .eq('id', user.user.id)
+                .single();
+
+            if (instructor && instructor.status !== 'active') {
+                window.location.href = '/instructor/onboarding/confirmation';
+                return;
+            }
 
             // Fetch current period lessons
             const { data: currentLessons } = await supabase
@@ -99,7 +111,7 @@ export default function InstructorSchedulePage() {
 
     // Calculate KPIs
     const scheduledLessons = filteredLessons.filter(l => l.status === 'scheduled' || l.status === 'in_progress');
-    const totalHours = scheduledLessons.reduce((sum, l) => sum + (l.duration_minutes / 60), 0);
+    const totalHours = scheduledLessons.reduce((sum, l) => sum + ((l.duration_minutes || 0) / 60), 0);
     const totalRevenue = scheduledLessons.reduce((sum, l) => sum + (l.price_cents || 0), 0);
 
     // Assuming 40 hours available per week (8 hours/day * 5 days)
@@ -107,7 +119,7 @@ export default function InstructorSchedulePage() {
     const occupancyRate = availableHours > 0 ? Math.round((totalHours / availableHours) * 100) : 0;
 
     // Calculate trends
-    const prevTotalHours = previousWeekLessons.reduce((sum, l) => sum + (l.duration_minutes / 60), 0);
+    const prevTotalHours = previousWeekLessons.reduce((sum, l) => sum + ((l.duration_minutes || 0) / 60), 0);
     const prevRevenue = previousWeekLessons.reduce((sum, l) => sum + (l.price_cents || 0), 0);
     const prevOccupancy = availableHours > 0 ? Math.round((prevTotalHours / availableHours) * 100) : 0;
 
@@ -177,7 +189,7 @@ export default function InstructorSchedulePage() {
                 />
 
                 <CalendarGrid
-                    lessons={filteredLessons}
+                    lessons={filteredLessons as any}
                     view={view}
                     currentDate={currentDate}
                     weekDays={weekDays}

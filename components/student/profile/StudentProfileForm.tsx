@@ -9,7 +9,7 @@ interface Profile {
     email: string | null;
     phone: string | null;
     avatar_url: string | null;
-    role: string;
+    role: string | null;
 }
 
 interface StudentProfileFormProps {
@@ -134,7 +134,7 @@ export function StudentProfileForm({ profile }: StudentProfileFormProps) {
                             {getFirstName(formData.full_name)}
                         </h3>
                         <p className="text-sm text-slate-500 dark:text-slate-400 capitalize">
-                            {profile.role === 'student' ? 'Aluno(a)' : profile.role}
+                            {profile.role === 'student' ? 'Aluno(a)' : (profile.role || 'Usuário')}
                         </p>
                     </div>
                 </div>

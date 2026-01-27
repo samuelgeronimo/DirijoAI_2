@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -215,10 +216,12 @@ export default function InstructorLandingPage() {
                                     </div>
                                 </div>
                                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors z-10"></div>
-                                <img
+                                <Image
                                     alt="Thumbnail do vídeo explicativo"
-                                    className="object-cover w-full h-full opacity-60"
                                     src="https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?q=80&w=2070&auto=format&fit=crop"
+                                    fill
+                                    className="object-cover opacity-60"
+                                    sizes="(max-width: 768px) 100vw, 448px"
                                 />
                                 <div className="absolute bottom-4 left-4 right-4 z-20">
                                     <p className="text-white font-bold text-sm bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full inline-block">

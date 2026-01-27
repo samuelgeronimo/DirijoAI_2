@@ -2,7 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { User } from '@supabase/supabase-js';
+import { Database } from '@/types/supabase';
 import { createClient } from '@/utils/supabase/client';
+import { InstructorProfileSkeleton } from '@/components/skeletons/InstructorProfileSkeleton';
+
+type SuccessStory = Database['public']['Tables']['success_stories']['Row'];
 
 interface InstructorProfileProps {
     instructorId: string;
@@ -12,38 +17,38 @@ interface Vehicle {
     model: string;
     brand: string;
     year: number;
-    features: string[];
-    photo_urls: string[];
+    features: string[] | null;
+    photo_urls: string[] | null;
 }
 
 interface Availability {
     day_of_week: number;
     start_time: string;
     end_time: string;
-    hourly_rate_cents: number;
+    hourly_rate_cents: number | null;
 }
 
 interface Review {
     id: string;
     rating: number;
-    comment: string;
-    created_at: string;
+    comment: string | null;
+    created_at: string | null;
     student_name: string; // We'll need to join with students/profiles to get this
     student_avatar?: string;
 }
 
 interface Instructor {
     id: string;
-    bio: string;
-    rating: number;
-    superpowers: string[];
+    bio: string | null;
+    rating: number | null;
+    superpowers: string[] | null;
     video_url: string | null;
-    service_city: string;
+    service_city: string | null;
     service_mode: string | null;
     profiles: {
-        full_name: string;
-        avatar_url: string;
-    };
+        full_name: string | null;
+        avatar_url: string | null;
+    } | null;
     vehicles: Vehicle[];
     instructor_availability: Availability[];
 }
@@ -53,25 +58,28 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
     const [instructor, setInstructor] = useState<Instructor | null>(null);
     const [loading, setLoading] = useState(true);
     const [reviews, setReviews] = useState<Review[]>([]);
-    const [galleryPhotos, setGalleryPhotos] = useState<any[]>([]);
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [galleryPhotos, setGalleryPhotos] = useState<SuccessStory[]>([]);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
     // Generate next 7 days starting tomorrow (D+1)
-    const next7Days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() + 1 + i);
-        return d;
-    });
+    const next7Days = React.useMemo(() => {
+        return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() + 1 + i);
+            return d;
+        });
+    }, []);
 
     // Auto-select first day
     useEffect(() => {
         if (!selectedDate && next7Days.length > 0) {
             setSelectedDate(next7Days[0]);
         }
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [next7Days]);
 
     // Helper to get day name
     const getDayName = (date: Date) => {
@@ -108,7 +116,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                 });
 
             if (lessons) {
-                const busyTimes = lessons.map((lesson: any) => {
+                const busyTimes = lessons.map((lesson: { scheduled_at: string }) => {
                     const lessonDate = new Date(lesson.scheduled_at);
                     // Format as "H:00" or "HH:00" depending on storage, matching getSlotsForDate
                     // getSlotsForDate produces "8:00", "9:00"...
@@ -232,7 +240,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
             }
 
             // Fetch Success Gallery Photos from Database (Metadata included)
-            const { data: galleryItems, error: galleryError } = await supabase
+            const { data: galleryItems } = await supabase
                 .from('success_stories')
                 .select('*')
                 .eq('instructor_id', instructorId)
@@ -245,8 +253,34 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                 setGalleryPhotos([]);
             }
 
+
             // Fetch Reviews
-            setReviews([]);
+            const { data: reviewsData, error: reviewsError } = await supabase
+                .from('reviews')
+                .select(`
+                    id,
+                    rating,
+                    comment,
+                    created_at,
+                    profiles:student_id (full_name, avatar_url)
+                `)
+                .eq('instructor_id', instructorId)
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (reviewsError) {
+                console.error("Error fetching reviews", reviewsError);
+            } else if (reviewsData) {
+                // @ts-ignore
+                setReviews(reviewsData.map(r => ({
+                    id: r.id,
+                    rating: r.rating,
+                    comment: r.comment,
+                    created_at: r.created_at,
+                    student_name: r.profiles?.full_name || 'Aluno',
+                    student_avatar: r.profiles?.avatar_url
+                })));
+            }
 
             setLoading(false);
         }
@@ -268,11 +302,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-[#f6f7f8] dark:bg-[#101922]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#137fec]"></div>
-            </div>
-        );
+        return <InstructorProfileSkeleton />;
     }
 
     if (!instructor) {
@@ -340,7 +370,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                                             src={instructor.video_url}
                                             className="w-full h-full object-cover"
                                             controls
-                                            poster={profile.avatar_url || ""}
+                                            poster={profile?.avatar_url || ""}
                                         />
                                     ) : (
                                         <>
@@ -375,7 +405,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                                             </span>
                                         )}
                                     </div>
-                                    <h1 className="text-[#0d141b] dark:text-white text-3xl md:text-4xl font-bold tracking-tight">{profile.full_name}</h1>
+                                    <h1 className="text-[#0d141b] dark:text-white text-3xl md:text-4xl font-bold tracking-tight">{profile?.full_name}</h1>
                                     <div className="flex items-center gap-2">
                                         <span className="material-symbols-outlined text-[#137fec] text-xl" title="Instrutor Verificado">verified</span>
                                         <p className="text-[#137fec] font-bold text-lg">Instrutor Credenciado DETRAN - Categoria B</p>
@@ -398,7 +428,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-3">
-                                    <button className="flex-1 min-w-[160px] flex items-center justify-center gap-2 rounded-lg h-12 px-6 bg-[#137fec] text-white text-base font-bold shadow-lg shadow-[#137fec]/30 hover:bg-[#137fec]/90 transition-all hover:-translate-y-0.5">
+                                    <button className="flex-1 min-w-[160px] flex items-center justify-center gap-2 rounded-lg h-12 px-6 bg-[#137fec] text-white text-base font-bold shadow-glow hover:bg-[#137fec]/90 transition-all hover:-translate-y-0.5">
                                         <span>Ver Horários Livres</span>
                                         <span className="material-symbols-outlined">calendar_month</span>
                                     </button>
@@ -419,7 +449,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 {galleryPhotos.length > 0 ? (
                                     <>
-                                        {galleryPhotos.slice(0, 5).map((item: any, idx) => {
+                                        {galleryPhotos.slice(0, 5).map((item, idx) => {
                                             const badge = getBadgeInfo(item.badge);
                                             return (
                                                 <div key={item.id || idx} className="relative aspect-[3/4] rounded-lg overflow-hidden group cursor-pointer shadow-md fade-in animate-in">
@@ -585,47 +615,44 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                                             <span className="material-symbols-outlined text-[#137fec]">forum</span>
                                             Avaliações de Alunos
                                         </h3>
-                                        <button className="text-[#137fec] text-sm font-bold hover:underline">Ver todas</button>
+                                        <Link href={`/instructor/${instructorId}/reviews`} className="text-[#137fec] text-sm font-bold hover:underline">Ver todas</Link>
                                     </div>
                                     <div className="space-y-4">
-                                        {/* Mock Reviews matching the prototype for visual consistency until real data is ready */}
-                                        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800">
-                                            <div className="flex justify-between mb-3">
-                                                <div className="flex gap-3">
-                                                    <div className="size-10 rounded-full bg-slate-200" data-alt="Student profile photo" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDkCFfBFG99wmS4K89Crsn1KhtCkxmnXSdzcn64zXhCMSo-6eVOz6lNUNVpElbjgtSb9EAJr_oXpg6wunVB6sVhFlaB5zRGsaNk9V4mZ5uUW2QYqS5b4wLBeUK2rsJOyW9-DDcomJBHm3hlJBdvheFc6hhN5dzYEJybk2zVOuGPoQIH6_BCkcvHRJ_n9e2HaqQtXDsqsJO9I1-zxPenxKoUf0gEyzQ2zdSdLm9cSrRClYLQfwp-EJH5QA4fICfsMO4HNZH4Ruu0ccYn")', backgroundSize: 'cover' }}></div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-[#0d141b] dark:text-white">Mariana Costa</p>
-                                                        <p className="text-xs text-[#4c739a]">Aprovada em Junho/2023</p>
+                                        <div className="space-y-4">
+                                            {reviews.length > 0 ? (
+                                                reviews.map((review) => (
+                                                    <div key={review.id} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-card-hover hover:-translate-y-1">
+                                                        <div className="flex justify-between mb-3">
+                                                            <div className="flex gap-3">
+                                                                <div
+                                                                    className="size-10 rounded-full bg-slate-200 bg-cover bg-center"
+                                                                    style={{ backgroundImage: `url('${review.student_avatar || "https://via.placeholder.com/150"}')` }}
+                                                                ></div>
+                                                                <div>
+                                                                    <p className="text-sm font-bold text-[#0d141b] dark:text-white">{review.student_name}</p>
+                                                                    <p className="text-xs text-[#4c739a]">Avaliado em {new Date(review.created_at || Date.now()).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex text-yellow-400">
+                                                                {[...Array(5)].map((_, i) => (
+                                                                    <span key={i} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                                                        {i < review.rating ? 'star' : 'star_border'}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        {review.comment && (
+                                                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                                                                &quot;{review.comment}&quot;
+                                                            </p>
+                                                        )}
                                                     </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                                                    <p className="text-slate-500 text-sm">Este instrutor ainda não possui avaliações.</p>
                                                 </div>
-                                                <div className="flex text-yellow-400">
-                                                    {[...Array(5)].map((_, i) => (
-                                                        <span key={i} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                                &quot;O Carlos é extremamente paciente. Eu tinha muito medo de trânsito pesado e hoje dirijo tranquilamente para o trabalho. Recomendo demais!&quot;
-                                            </p>
-                                        </div>
-                                        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-100 dark:border-slate-800">
-                                            <div className="flex justify-between mb-3">
-                                                <div className="flex gap-3">
-                                                    <div className="size-10 rounded-full bg-slate-200" data-alt="Student profile photo" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDMHBgV3GbjDnKMge98mdWKzzByUycM2PHETZSv2IpMNFVNDX4i6JVTxREbHNPVnTQmKe3wq_c7mvwZeXFGTt4YnM-Lq4Mg0ed9unr-A2J921Y_IeWH23cj2fY869puuOuTYUMEPUxO5aG-EHzEQF7X34nOWsSEDNSd4bIQmLoZP73kEmtfK0HIcVnoZNVEQNBXNOSzNY2U_3_4l9kEmAE1Z2Fd3c8i4N8iCwocfuUln-U8nqd7EuSr7FrGTolJszj19AbY6K_UcwgY")', backgroundSize: 'cover' }}></div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-[#0d141b] dark:text-white">Rodrigo Mendes</p>
-                                                        <p className="text-xs text-[#4c739a]">Habilitado em Agosto/2023</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex text-yellow-400">
-                                                    {[...Array(5)].map((_, i) => (
-                                                        <span key={i} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                                                &quot;Passei de primeira no exame! O foco dele na baliza foi o diferencial. Carro muito novo e fácil de dirigir.&quot;
-                                            </p>
+                                            )}
                                         </div>
                                     </div>
                                 </section>

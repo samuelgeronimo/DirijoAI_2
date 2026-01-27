@@ -36,9 +36,18 @@ export async function fixOrder10004() {
         return { success: false, message: "Order 10004 not found." };
     }
 
-    const { instructor_id, amount_cents } = order;
+    const { instructor_id, amount_cents, metadata } = order;
 
-    // 3. Check if lesson exists for THIS user
+    // 3. Calculate clean lesson price (exclude manual)
+    let lessonPriceCents = amount_cents;
+    if (metadata && typeof metadata === 'object' && 'manual_included' in metadata) {
+        const orderMetadata = metadata as { manual_included?: boolean; manual_price?: number };
+        if (orderMetadata.manual_included && orderMetadata.manual_price) {
+            lessonPriceCents = amount_cents - Math.round(orderMetadata.manual_price * 100);
+        }
+    }
+
+    // 4. Check if lesson exists for THIS user
     const { data: existingLesson } = await supabase
         .from('lessons')
         .select('*')
@@ -57,7 +66,7 @@ export async function fixOrder10004() {
         return { success: true, message: "Lesson already exists." };
     }
 
-    // 4. Insert Lesson
+    // 5. Insert Lesson
     const { error: insertError } = await supabase
         .from('lessons')
         .insert({
@@ -66,7 +75,7 @@ export async function fixOrder10004() {
             scheduled_at: v_target_date,
             duration_minutes: 50,
             status: 'scheduled',
-            price_cents: amount_cents
+            price_cents: lessonPriceCents
         });
 
     if (insertError) {

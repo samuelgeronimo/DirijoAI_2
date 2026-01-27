@@ -1,8 +1,77 @@
 "use client";
 
-export function GodModePanel() {
+import { updatePlatformTakeRate } from "@/app/admin/actions";
+import { useState, useTransition } from "react";
+
+interface GodModePanelProps {
+    initialRate: number;
+}
+
+export function GodModePanel({ initialRate }: GodModePanelProps) {
+    const [rate, setRate] = useState(initialRate);
+    const [isPending, startTransition] = useTransition();
+
+    const handleRateChange = (newRate: number) => {
+        setRate(newRate);
+    };
+
+    const handleSaveRate = () => {
+        startTransition(async () => {
+            await updatePlatformTakeRate(rate);
+            alert('Taxa atualizada com sucesso!');
+        });
+    };
+
     return (
         <div className="w-full xl:w-[400px] shrink-0 flex flex-col gap-6 sticky top-6">
+            {/* Platform Commission Config */}
+            <div className="bg-[#111a22] rounded-xl border border-[#324d67] shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-emerald-900/40 to-blue-900/40 p-4 border-b border-[#324d67]">
+                    <div className="flex items-center gap-2 text-white mb-1">
+                        <span className="material-symbols-outlined text-emerald-400">
+                            percent
+                        </span>
+                        <h3 className="font-bold text-lg">Comissão da Plataforma</h3>
+                    </div>
+                    <p className="text-xs text-[#92adc9]">
+                        Define a porcentagem retida em cada aula.
+                    </p>
+                </div>
+                <div className="p-5 flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                            <label className="text-sm font-medium text-white">Take Rate (%)</label>
+                            <span className="text-emerald-400 font-bold font-mono">{rate}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="50"
+                            step="1"
+                            value={rate}
+                            onChange={(e) => handleRateChange(Number(e.target.value))}
+                            className="w-full h-2 bg-[#233648] rounded-lg appearance-none cursor-pointer accent-[#137fec]"
+                        />
+                        <div className="flex justify-between text-xs text-[#5a718a]">
+                            <span>0%</span>
+                            <span>50%</span>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleSaveRate}
+                        disabled={isPending}
+                        className="w-full bg-[#137fec] hover:bg-[#137fec]/90 text-white font-bold py-2.5 rounded-lg shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        {isPending ? (
+                            <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                        ) : (
+                            <span className="material-symbols-outlined text-[18px]">save</span>
+                        )}
+                        Salvar Configuração
+                    </button>
+                </div>
+            </div>
+
             <div className="bg-[#111a22] rounded-xl border border-[#324d67] shadow-xl overflow-hidden">
                 <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 p-4 border-b border-[#324d67]">
                     <div className="flex items-center gap-2 text-white mb-1">

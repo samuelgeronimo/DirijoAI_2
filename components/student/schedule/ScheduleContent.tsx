@@ -8,12 +8,22 @@ import { CalendarGrid } from "@/components/student/schedule/CalendarGrid";
 import { FocusSelection } from "@/components/student/schedule/FocusSelection";
 import { CancelConfirmationModal } from "@/components/student/schedule/CancelConfirmationModal";
 
+import { User } from "@supabase/supabase-js";
+import { Database } from "@/types/supabase";
+
+type Instructor = Database['public']['Tables']['instructors']['Row'] & {
+    profiles: Database['public']['Tables']['profiles']['Row'] | null;
+    vehicles: Database['public']['Tables']['vehicles']['Row'][];
+};
+
+type AvailabilityPattern = Database['public']['Tables']['instructor_availability']['Row'];
+
 interface ScheduleContentProps {
-    user: any;
-    instructor: any;
+    user: User;
+    instructor: Instructor;
     balance: number;
     totalPackage: number;
-    availabilityPatterns: any[];
+    availabilityPatterns: AvailabilityPattern[];
     busySlots: string[];
     scheduledLessons: Array<{ scheduled_at: string; status: string; id: string }>;
     priceCents: number;
@@ -159,13 +169,11 @@ export function ScheduleContent({
         <div className="flex-1 w-full max-w-6xl mx-auto p-6 md:p-8 flex flex-col gap-8">
             {/* Instructor Hero Section */}
             <InstructorHero
-                instructorName={Array.isArray(instructor?.profiles) ? instructor?.profiles[0]?.full_name : instructor?.profiles?.full_name || 'Seu Instrutor'}
-                instructorAvatar={Array.isArray(instructor?.profiles) ? instructor?.profiles[0]?.avatar_url : instructor?.profiles?.avatar_url}
+                instructorName={instructor?.profiles?.full_name || 'Seu Instrutor'}
+                instructorAvatar={instructor?.profiles?.avatar_url || ""}
                 vehicleInitial={
                     instructor?.vehicles && instructor.vehicles.length > 0
-                        ? (Array.isArray(instructor.vehicles)
-                            ? `${instructor.vehicles[0]?.brand} ${instructor.vehicles[0]?.model} • ${instructor.vehicles[0]?.color}`
-                            : 'Veículo não informado')
+                        ? `${instructor.vehicles[0]?.brand} ${instructor.vehicles[0]?.model} • ${instructor.vehicles[0]?.color}`
                         : 'Veículo não informado'
                 }
                 balance={balance}

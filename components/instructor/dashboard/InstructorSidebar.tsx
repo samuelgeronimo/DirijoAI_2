@@ -55,12 +55,21 @@ export async function InstructorSidebar() {
                     </Link>
                     <Link
                         className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
-                        href="#"
+                        href="/instructor/students"
                     >
                         <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
                             group
                         </span>
                         <span>Alunos</span>
+                    </Link>
+                    <Link
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+                        href="/instructor/reviews"
+                    >
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
+                            reviews
+                        </span>
+                        <span>Avaliações</span>
                     </Link>
                     <Link
                         className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"

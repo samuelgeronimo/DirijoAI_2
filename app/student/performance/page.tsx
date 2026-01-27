@@ -1,7 +1,49 @@
 import { SkillsList } from "@/components/student/skills/SkillsList";
 import { UpsellCard } from "@/components/student/skills/UpsellCard";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
 
-export default function StudentPerformancePage() {
+export default async function StudentPerformancePage() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    // Fetch Skills Evaluation from completed lessons
+    const { data: lessons } = await supabase
+        .from('lessons')
+        .select('skills_evaluation')
+        .eq('student_id', user.id)
+        .eq('status', 'completed')
+        .not('skills_evaluation', 'is', null);
+
+    // Calculate Average Skills
+    let averageSkills = null;
+    if (lessons && lessons.length > 0) {
+        const totals = { clutchControl: 0, spatialAwareness: 0, lawRespect: 0 };
+        let count = 0;
+
+        lessons.forEach((l: any) => {
+            const skills = l.skills_evaluation;
+            if (skills && typeof skills.clutchControl === 'number') {
+                totals.clutchControl += skills.clutchControl;
+                totals.spatialAwareness += skills.spatialAwareness || 0;
+                totals.lawRespect += skills.lawRespect || 0;
+                count++;
+            }
+        });
+
+        if (count > 0) {
+            averageSkills = {
+                clutchControl: totals.clutchControl / count,
+                spatialAwareness: totals.spatialAwareness / count,
+                lawRespect: totals.lawRespect / count
+            };
+        }
+    }
+
     return (
         <div className="w-full max-w-[1120px] px-4 md:px-8 lg:px-12 py-8 md:py-12 flex flex-col gap-10">
             {/* Header Section */}
@@ -16,7 +58,7 @@ export default function StudentPerformancePage() {
             </header>
             {/* Dashboard Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                <SkillsList />
+                <SkillsList skills={averageSkills} />
                 <UpsellCard />
             </div>
             {/* Footer Summary (Optional visual element) */}

@@ -37,30 +37,41 @@ function Slider({ label, icon, value, onChange }: SliderProps) {
     );
 }
 
-export function PerformanceSliders() {
-    const [clutchControl, setClutchControl] = useState(8);
-    const [spatialAwareness, setSpatialAwareness] = useState(6);
-    const [lawRespect, setLawRespect] = useState(9);
+export interface SkillsState {
+    clutchControl: number;
+    spatialAwareness: number;
+    lawRespect: number;
+}
+
+interface PerformanceSlidersProps {
+    values: SkillsState;
+    onChange: (values: SkillsState) => void;
+}
+
+export function PerformanceSliders({ values, onChange }: PerformanceSlidersProps) {
+    const handleChange = (key: keyof SkillsState, val: number) => {
+        onChange({ ...values, [key]: val });
+    };
 
     return (
         <div className="space-y-6">
             <Slider
                 label="Controle de Embreagem"
                 icon="settings_motion_mode"
-                value={clutchControl}
-                onChange={setClutchControl}
+                value={values.clutchControl}
+                onChange={(val) => handleChange('clutchControl', val)}
             />
             <Slider
                 label="Noção de Espaço"
                 icon="minor_crash"
-                value={spatialAwareness}
-                onChange={setSpatialAwareness}
+                value={values.spatialAwareness}
+                onChange={(val) => handleChange('spatialAwareness', val)}
             />
             <Slider
                 label="Respeito às Leis"
                 icon="gavel"
-                value={lawRespect}
-                onChange={setLawRespect}
+                value={values.lawRespect}
+                onChange={(val) => handleChange('lawRespect', val)}
             />
         </div>
     );

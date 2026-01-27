@@ -6,11 +6,11 @@ interface Order {
     id: string;
     plan_name: string;
     amount_cents: number;
-    status: string;
-    created_at: string;
-    student?: { full_name: string; email: string };
+    status: string | null;
+    created_at: string | null;
+    student?: { full_name: string | null; email: string | null };
     instructor?: {
-        profiles: { full_name: string }
+        profiles: { full_name: string | null }
     };
     metadata: any;
 }
@@ -58,11 +58,11 @@ export function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                     <tbody className="text-[#92adc9]">
                         {orders.map((order) => (
                             <tr key={order.id} className="border-b border-[#334b63] last:border-0 hover:bg-[#334b63]/30 transition-colors">
-                                <td className="px-4 py-3 font-medium text-white">{fmtDate(order.created_at)}</td>
+                                <td className="px-4 py-3 font-medium text-white">{order.created_at ? fmtDate(order.created_at) : 'N/A'}</td>
                                 <td className="px-4 py-3">
                                     <div className="flex flex-col">
                                         <span className="text-white">{order.student?.full_name || 'N/A'}</span>
-                                        <span className="text-xs text-[#92adc9]/70">{order.student?.email}</span>
+                                        <span className="text-xs text-[#92adc9]/70">{order.student?.email || ''}</span>
                                     </div>
                                 </td>
                                 <td className="px-4 py-3 text-white">
@@ -76,11 +76,11 @@ export function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                                 </td>
                                 <td className="px-4 py-3 font-bold text-[#0bda5b]">{fmtMoney(order.amount_cents)}</td>
                                 <td className="px-4 py-3 text-right">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${order.status === 'paid' ? 'bg-[#0bda5b]/10 text-[#0bda5b]' :
-                                            order.status === 'pending' ? 'bg-[#eab308]/10 text-[#eab308]' :
-                                                'bg-red-500/10 text-red-500'
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${(order.status || 'pending') === 'paid' ? 'bg-[#0bda5b]/10 text-[#0bda5b]' :
+                                        (order.status || 'pending') === 'pending' ? 'bg-[#eab308]/10 text-[#eab308]' :
+                                            'bg-red-500/10 text-red-500'
                                         }`}>
-                                        {order.status === 'paid' ? 'Pago' : order.status === 'pending' ? 'Pendente' : order.status}
+                                        {(order.status || 'pending') === 'paid' ? 'Pago' : (order.status || 'pending') === 'pending' ? 'Pendente' : (order.status || 'pending')}
                                     </span>
                                 </td>
                             </tr>

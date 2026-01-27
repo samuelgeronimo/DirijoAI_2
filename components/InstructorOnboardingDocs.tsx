@@ -141,17 +141,37 @@ export default function InstructorOnboardingDocs() {
     const handleContinue = async () => {
         const supabase = createClient();
 
-        // Validate all required files are present
-        const missingFiles = DOC_TYPES.filter(doc => !files[doc.id] || files[doc.id].status !== 'completed');
-
+        // Validate CPF
         if (!validateCPF(cpf)) {
             setCpfError("CPF Inválido");
             alert("Por favor, corrija o CPF antes de continuar.");
             return;
         }
 
-        if (missingFiles.length > 0 || !user) {
-            alert(`Por favor, envie todos os documentos obrigatórios:\n${missingFiles.map(d => "- " + d.label).join("\n")}`);
+        // CNH Validation: Either (front + back) OR digital
+        const hasCnhFront = files['cnh_front']?.status === 'completed';
+        const hasCnhBack = files['cnh_back']?.status === 'completed';
+        const hasCnhDigital = files['cnh_digital']?.status === 'completed';
+        const hasPhysicalCnh = hasCnhFront && hasCnhBack;
+        const hasValidCnh = hasPhysicalCnh || hasCnhDigital;
+
+        if (!hasValidCnh) {
+            alert("Por favor, envie:\n- Frente E Verso da CNH física, OU\n- CNH Digital (PDF)");
+            return;
+        }
+
+        // Validate other required documents (excluding cnh_digital which is now optional)
+        const otherRequiredDocs = DOC_TYPES.filter(doc =>
+            doc.id !== 'cnh_front' &&
+            doc.id !== 'cnh_back' &&
+            doc.id !== 'cnh_digital'
+        );
+        const missingOtherDocs = otherRequiredDocs.filter(doc =>
+            !files[doc.id] || files[doc.id].status !== 'completed'
+        );
+
+        if (missingOtherDocs.length > 0 || !user) {
+            alert(`Por favor, envie todos os documentos obrigatórios:\n${missingOtherDocs.map(d => "- " + d.label).join("\n")}`);
             return;
         }
 

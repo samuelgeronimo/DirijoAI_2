@@ -102,14 +102,14 @@ export default async function StudentSchedulePage() {
 
     const scheduledLessons = (studentLessons || []).map(lesson => ({
         scheduled_at: lesson.scheduled_at,
-        status: lesson.status,
+        status: lesson.status || 'scheduled', // Ensure non-null
         id: lesson.id
     }));
 
     return (
         <ScheduleContent
             user={user}
-            instructor={instructor}
+            instructor={instructor as any}
             balance={balance}
             totalPackage={lessons_count || 0}
             availabilityPatterns={availabilityPatterns || []}

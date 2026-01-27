@@ -1,12 +1,45 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
 import SearchEmptyState from './SearchEmptyState';
+import FilterEmptyState from './FilterEmptyState';
+
+// Dynamic import for InstructorCard - code splitting
+const InstructorCard = dynamic(() => import('./InstructorCard'), {
+    loading: () => (
+        <div className="animate-pulse flex flex-col md:flex-row gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="h-32 w-32 md:w-48 bg-slate-200 dark:bg-slate-800 rounded-lg shrink-0"></div>
+            <div className="flex-1 space-y-3 w-full">
+                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3"></div>
+                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/2"></div>
+                <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
+            </div>
+        </div>
+    )
+});
+
+import { User } from '@supabase/supabase-js';
+import { Database } from '@/types/supabase';
+
+type Instructor = Database['public']['Tables']['instructors']['Row'];
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type Vehicle = Database['public']['Tables']['vehicles']['Row'];
+type Availability = Database['public']['Tables']['instructor_availability']['Row'];
+
+type InstructorWithRelations = Partial<Instructor> & {
+    profiles: Pick<Profile, 'full_name' | 'avatar_url'> | null;
+    vehicles: Partial<Vehicle>[];
+    instructor_availability: Partial<Availability>[];
+    meeting_point_name?: string | null;
+    reviews?: { id: string }[];
+};
 
 // Helper to check time intersection
-const hasTimeSlot = (availability: any[], period: 'morning' | 'afternoon' | 'night') => {
+const hasTimeSlot = (availability: Partial<Availability>[], period: 'morning' | 'afternoon' | 'night') => {
     if (!availability || availability.length === 0) return false;
 
     // Morning: 06-12, Afternoon: 12-18, Night: 18-23
@@ -19,6 +52,7 @@ const hasTimeSlot = (availability: any[], period: 'morning' | 'afternoon' | 'nig
     const range = periodRanges[period];
 
     return availability.some(slot => {
+        if (!slot.start_time || !slot.end_time) return false;
         const start = parseInt(slot.start_time.split(':')[0]);
         const end = parseInt(slot.end_time.split(':')[0]);
         // Check overlap
@@ -26,12 +60,26 @@ const hasTimeSlot = (availability: any[], period: 'morning' | 'afternoon' | 'nig
     });
 };
 
-export default function SearchResults() {
+interface SearchResultsProps {
+    initialData: InstructorWithRelations[];
+    totalCount: number;
+    currentPage: number;
+}
+
+export default function SearchResults({ initialData, totalCount, currentPage }: SearchResultsProps) {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const query = searchParams.get('q') || "";
 
-    const [instructors, setInstructors] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [instructors, setInstructors] = useState<InstructorWithRelations[]>(initialData);
+    const [loading, setLoading] = useState(false); // Changed to false since we have initial data
+
+    const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            const value = (e.target as HTMLInputElement).value;
+            router.push(`/search?q=${encodeURIComponent(value)}`);
+        }
+    };
 
     // Filters State
     const [fearOfDriving, setFearOfDriving] = useState(false);
@@ -41,56 +89,34 @@ export default function SearchResults() {
     const [serviceModeFilter, setServiceModeFilter] = useState<string[]>([]);
     const [vehicleFeaturesFilter, setVehicleFeaturesFilter] = useState<string[]>([]);
 
+    const clearFilters = () => {
+        setFearOfDriving(false);
+        setSelectedTime('all');
+        setMinRating(0);
+        setPriceRange([0, 200]);
+        setServiceModeFilter([]);
+        setVehicleFeaturesFilter([]);
+    };
+
     const VEHICLE_FEATURES = ['❄️ Ar Condicionado', '💪 Direção Elétrica', '🛑 Freio Duplo', '📹 Câmera de Ré', '⚙️ Câmbio Automático', '🔌 Carregador USB', '⚡ Carregador USB-C'];
 
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
 
-    // Fetch Data
+    // Sync state with initialData when it changes (new search)
+    useEffect(() => {
+        setInstructors(initialData);
+    }, [initialData]);
+
+    // Only check user auth, data comes from props
     useEffect(() => {
         const supabase = createClient();
-
         async function checkUser() {
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
         }
         checkUser();
+    }, []);
 
-        async function fetchInstructors() {
-            setLoading(true);
-
-            let queryBuilder = supabase
-                .from('instructors')
-                .select(`
-                    id,
-                    rating,
-                    bio,
-                    city,
-                    service_city,
-                    service_mode,
-                    state,
-                    video_url,
-                    superpowers,
-                    profiles!instructors_id_fkey(full_name, avatar_url),
-                    vehicles(model, brand, year, color, features, photo_urls, is_active),
-                    instructor_availability(hourly_rate_cents, day_of_week, start_time, end_time)
-                `);
-
-            if (query && query.length > 2) {
-                queryBuilder = queryBuilder.ilike('service_city', `%${query}%`);
-            }
-
-            const { data, error } = await queryBuilder;
-
-            if (error) {
-                console.error('Error fetching instructors:', error);
-            } else {
-                setInstructors(data || []);
-            }
-            setLoading(false);
-        }
-
-        fetchInstructors();
-    }, [query]);
 
     // Filtering and Sorting
     const sortedAndFilteredInstructors = useMemo(() => {
@@ -135,7 +161,7 @@ export default function SearchResults() {
         if (vehicleFeaturesFilter.length > 0) {
             result = result.filter(inst => {
                 // Check if ANY of the instructor's vehicles has ALL selected features
-                return inst.vehicles?.some((vehicle: any) =>
+                return inst.vehicles?.some((vehicle) =>
                     vehicleFeaturesFilter.every((feature) => vehicle.features?.includes(feature))
                 );
             });
@@ -144,7 +170,7 @@ export default function SearchResults() {
         // 2. Sorting
         // Formula: score = (HasVideo ? 20 : 0) + (HasAvailability ? 10 : 0) + Rating
         result.sort((a, b) => {
-            const getScore = (inst: any) => {
+            const getScore = (inst: InstructorWithRelations) => {
                 let score = 0;
                 // Has Video (+20)
                 if (inst.video_url) score += 20;
@@ -191,6 +217,7 @@ export default function SearchResults() {
                                 className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-[#137fec] text-sm text-slate-900 dark:text-white placeholder-slate-500"
                                 placeholder="Buscar por cidade..."
                                 defaultValue={query}
+                                onKeyDown={handleSearch}
                             />
                         </div>
                     </div>
@@ -224,7 +251,7 @@ export default function SearchResults() {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col">
-                {!hasResults && !loading ? (
+                {!loading && instructors.length === 0 ? (
                     <SearchEmptyState city={query} />
                 ) : (
                     <div className="flex flex-col lg:flex-row gap-8 w-full max-w-[1200px] mx-auto px-4 py-8 flex-1">
@@ -406,16 +433,9 @@ export default function SearchResults() {
                                 </h2>
 
                                 {/* Active Filters Summary */}
-                                {(fearOfDriving || selectedTime !== 'all' || minRating > 0) && (
+                                {(fearOfDriving || selectedTime !== 'all' || minRating > 0 || serviceModeFilter.length > 0 || vehicleFeaturesFilter.length > 0) && (
                                     <button
-                                        onClick={() => {
-                                            setFearOfDriving(false);
-                                            setSelectedTime('all');
-                                            setMinRating(0);
-                                            setPriceRange([0, 200]);
-                                            setServiceModeFilter([]);
-                                            setVehicleFeaturesFilter([]);
-                                        }}
+                                        onClick={clearFilters}
                                         className="text-sm text-[#137fec] font-medium hover:underline bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full"
                                     >
                                         Limpar Filtros
@@ -436,8 +456,8 @@ export default function SearchResults() {
                                         </div>
                                     ))}
                                 </div>
-                            ) : !hasResults ? (
-                                <SearchEmptyState city={query} />
+                            ) : sortedAndFilteredInstructors.length === 0 ? (
+                                <FilterEmptyState onClearFilters={clearFilters} />
                             ) : (
                                 <div className="space-y-4">
                                     {sortedAndFilteredInstructors.map((instructor) => {
@@ -455,7 +475,13 @@ export default function SearchResults() {
                                                 <div className="relative w-full md:w-48 aspect-video md:aspect-[4/3] shrink-0 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800">
                                                     {/* Prefer Video thumbnail if available (mocked) or Profile/Car */}
                                                     {vehicle?.photo_urls?.[0] ? (
-                                                        <img src={vehicle.photo_urls[0]} alt="Veículo" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                        <Image
+                                                            src={vehicle.photo_urls[0]}
+                                                            alt="Veículo"
+                                                            fill
+                                                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                                            sizes="(max-width: 768px) 100vw, 192px"
+                                                        />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-800">
                                                             <span className="material-symbols-outlined text-4xl">directions_car</span>
@@ -473,7 +499,13 @@ export default function SearchResults() {
                                                     {/* Avatar Overlay (Bottom Left) */}
                                                     <div className="absolute bottom-2 left-2 size-10 rounded-full border-2 border-white dark:border-slate-800 bg-slate-200 overflow-hidden shadow-md z-10">
                                                         {instructor.profiles?.avatar_url ? (
-                                                            <img src={instructor.profiles.avatar_url} className="w-full h-full object-cover" />
+                                                            <Image
+                                                                src={instructor.profiles.avatar_url}
+                                                                alt={instructor.profiles.full_name || 'Instrutor'}
+                                                                fill
+                                                                className="object-cover"
+                                                                sizes="40px"
+                                                            />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center text-slate-500 font-bold text-xs">
                                                                 {instructor.profiles?.full_name?.charAt(0)}
@@ -488,12 +520,12 @@ export default function SearchResults() {
                                                         <div className="flex justify-between items-start">
                                                             <div>
                                                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-[#137fec] transition-colors">
-                                                                    {instructor.profiles.full_name}
+                                                                    {instructor.profiles?.full_name}
                                                                 </h3>
                                                                 <div className="flex items-center gap-1 text-amber-500 font-bold text-sm mt-0.5">
                                                                     <span>{instructor.rating || "5.0"}</span>
                                                                     <span className="material-symbols-outlined text-[16px] fill-current">star</span>
-                                                                    <span className="text-slate-400 font-normal ml-1 text-xs">({Math.floor(Math.random() * 50) + 10} avaliações)</span>
+                                                                    <span className="text-slate-400 font-normal ml-1 text-xs">({instructor.reviews?.length || 0} avaliações)</span>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">
@@ -510,7 +542,7 @@ export default function SearchResults() {
                                                                     {power}
                                                                 </span>
                                                             ))}
-                                                            {instructor.superpowers?.length > 3 && (
+                                                            {instructor.superpowers && instructor.superpowers.length > 3 && (
                                                                 <span className="px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-500 text-xs border border-slate-100 dark:border-slate-700">
                                                                     +{instructor.superpowers.length - 3}
                                                                 </span>
@@ -525,6 +557,21 @@ export default function SearchResults() {
                                                                 <span>{vehicle.color}</span>
                                                             </div>
                                                         )}
+
+                                                        {/* Service Mode Info */}
+                                                        <div className="mt-3">
+                                                            {(instructor.service_mode === 'student_home' || instructor.service_mode === 'both') ? (
+                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold border border-green-100 dark:border-green-800/30">
+                                                                    <span className="material-symbols-outlined text-[14px]">home</span>
+                                                                    🏠 Vou até você
+                                                                </span>
+                                                            ) : instructor.service_mode === 'meeting_point' && (
+                                                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-1 rounded-md">
+                                                                    <span className="material-symbols-outlined text-[14px] text-instructor-primary">location_on</span>
+                                                                    Me encontre em: <b className="text-slate-900 dark:text-white ml-0.5">{instructor.meeting_point_name || "Ponto de Encontro"}</b>
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
 
                                                     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -552,6 +599,33 @@ export default function SearchResults() {
                                 </div>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* Pagination Controls */}
+                {totalCount > 20 && (
+                    <div className="flex items-center justify-center gap-4 py-8">
+                        <Link
+                            href={`/search?q=${encodeURIComponent(query)}&page=${currentPage - 1}`}
+                            className={`px-4 py-2 rounded-lg border transition-colors ${currentPage === 1
+                                ? 'border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed pointer-events-none'
+                                : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
+                        >
+                            ← Anterior
+                        </Link>
+                        <span className="text-sm text-slate-600 dark:text-slate-400">
+                            Página {currentPage} de {Math.ceil(totalCount / 20)}
+                        </span>
+                        <Link
+                            href={`/search?q=${encodeURIComponent(query)}&page=${currentPage + 1}`}
+                            className={`px-4 py-2 rounded-lg border transition-colors ${currentPage >= Math.ceil(totalCount / 20)
+                                ? 'border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed pointer-events-none'
+                                : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
+                        >
+                            Próxima →
+                        </Link>
                     </div>
                 )}
             </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { VEHICLE_FEATURES_STANDARD } from "@/utils/vehicleFeatures";
@@ -247,7 +248,13 @@ export default function InstructorOnboardingProfile() {
                                             <div className="flex min-w-[120px] flex-col items-center gap-3">
                                                 <div className="group relative flex size-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800/80">
                                                     {photoPreview ? (
-                                                        <img src={photoPreview} className="w-full h-full object-cover" />
+                                                        <Image
+                                                            src={photoPreview}
+                                                            alt="Preview da foto de perfil"
+                                                            fill
+                                                            className="object-cover"
+                                                            unoptimized
+                                                        />
                                                     ) : (
                                                         <>
                                                             <input
@@ -392,7 +399,13 @@ export default function InstructorOnboardingProfile() {
                                                 {/* Previews */}
                                                 {vehiclePhotoPreviews.map((preview, index) => (
                                                     <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 group">
-                                                        <img src={preview} className="w-full h-full object-cover" />
+                                                        <Image
+                                                            src={preview}
+                                                            alt={`Foto do veículo ${index + 1}`}
+                                                            fill
+                                                            className="object-cover"
+                                                            unoptimized
+                                                        />
                                                         <button
                                                             onClick={() => removeVehiclePhoto(index)}
                                                             className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
