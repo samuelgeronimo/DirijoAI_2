@@ -21,7 +21,7 @@ export default function HeroSection() {
                     if (data.address) {
                         const city = data.address.city || data.address.town || data.address.village || "";
                         const state = data.address.state || "";
-                        const formattedParams = [city, state].filter(Boolean).join(" - ");
+                        const formattedParams = city;
                         setLocationInput(formattedParams);
                     }
                 } catch (error) {
