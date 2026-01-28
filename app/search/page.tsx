@@ -1,4 +1,5 @@
 import SearchResults from '@/components/SearchResults';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { Suspense } from 'react';
 import { createClient } from '@/utils/supabase/server';
 import { Metadata } from 'next';
@@ -54,12 +55,22 @@ export default async function SearchPage(props: { searchParams: SearchParams }) 
         .range(from, to);
 
     return (
-        <Suspense fallback={<div>Loading...</div>}>
-            <SearchResults
-                initialData={instructors || []}
-                totalCount={count || 0}
-                currentPage={page}
-            />
-        </Suspense>
+        <main className="min-h-screen bg-slate-50">
+            <div className="max-w-[1200px] mx-auto px-6 py-6">
+                <Breadcrumbs
+                    items={[
+                        { label: 'Home', href: '/' },
+                        { label: 'Busca', href: '/search' }
+                    ]}
+                />
+                <Suspense fallback={<div>Loading...</div>}>
+                    <SearchResults
+                        initialData={instructors || []}
+                        totalCount={count || 0}
+                        currentPage={page}
+                    />
+                </Suspense>
+            </div>
+        </main>
     );
 }

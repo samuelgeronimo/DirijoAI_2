@@ -8,7 +8,12 @@ import HeroSection from '@/components/landing/HeroSection';
 import LandingHeader from '@/components/landing/LandingHeader';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
-import AuthModal from '@/components/auth/AuthModal';
+import dynamic from 'next/dynamic';
+
+const AuthModal = dynamic(() => import('@/components/auth/AuthModal'), {
+    ssr: false,
+    loading: () => null
+});
 
 export default function LandingPage() {
     const [isAuthModalOpen, setIsAuthModalOpen] = React.useState(false);

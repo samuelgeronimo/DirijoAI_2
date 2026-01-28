@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import InstructorProfile from '@/components/InstructorProfile';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { InstructorProfileSkeleton } from '@/components/skeletons/InstructorProfileSkeleton';
 
 interface PageProps {
@@ -158,15 +159,24 @@ export default async function InstructorPage({ params }: PageProps) {
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
             />
-            <Suspense fallback={<InstructorProfileSkeleton />}>
-                {/* @ts-ignore - Supabase types mismatch slightly but shape is correct */}
-                <InstructorProfile
-                    instructorId={id}
-                    initialInstructor={instructor}
-                    initialReviews={reviews}
-                    initialGallery={gallery}
+            <div className="max-w-[1200px] mx-auto px-6 py-4">
+                <Breadcrumbs
+                    items={[
+                        { label: 'Home', href: '/' },
+                        { label: 'Busca', href: '/search' },
+                        { label: instructor.profiles?.full_name || 'Instrutor', href: `/instructor/${id}` }
+                    ]}
                 />
-            </Suspense>
+                <Suspense fallback={<InstructorProfileSkeleton />}>
+                    {/* @ts-ignore - Supabase types mismatch slightly but shape is correct */}
+                    <InstructorProfile
+                        instructorId={id}
+                        initialInstructor={instructor}
+                        initialReviews={reviews}
+                        initialGallery={gallery}
+                    />
+                </Suspense>
+            </div>
         </>
     );
 }
