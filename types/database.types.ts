@@ -48,6 +48,10 @@ export interface Database {
                     phone: string | null
                     bio: string | null
                     pix_key: string | null
+                    bank_name: string | null
+                    account_number: string | null
+                    agency_number: string | null
+                    account_type: string | null
                     balance_cents: number
                     status: 'pending_docs' | 'active' | 'suspended'
                     rating: number
@@ -67,6 +71,10 @@ export interface Database {
                     phone?: string | null
                     bio?: string | null
                     pix_key?: string | null
+                    bank_name?: string | null
+                    account_number?: string | null
+                    agency_number?: string | null
+                    account_type?: string | null
                     balance_cents?: number
                     status?: 'pending_docs' | 'active' | 'suspended'
                     rating?: number
@@ -86,6 +94,10 @@ export interface Database {
                     phone?: string | null
                     bio?: string | null
                     pix_key?: string | null
+                    bank_name?: string | null
+                    account_number?: string | null
+                    agency_number?: string | null
+                    account_type?: string | null
                     balance_cents?: number
                     status?: 'pending_docs' | 'active' | 'suspended'
                     rating?: number

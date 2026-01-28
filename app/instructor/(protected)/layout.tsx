@@ -73,7 +73,7 @@ export default async function InstructorPrivateLayout({
                     </a>
                     <a
                         className="flex flex-col items-center gap-1 text-gray-400"
-                        href="#"
+                        href="/instructor/wallet"
                     >
                         <span className="material-symbols-outlined font-light">
                             account_balance_wallet

@@ -34,6 +34,18 @@ export const ReviewSchema = z.object({
     comment: z.string().max(1000, 'Comment too long').optional()
 });
 
+// Bank details validation
+export const BankDetailsSchema = z.object({
+    pix_key: z.string().regex(/^\d{11}$/, 'O PIX deve ser o CPF (11 dígitos numéricos)'),
+    bank_name: z.string().min(2, 'Nome do banco é obrigatório'),
+    account_number: z.string().min(1, 'Número da conta é obrigatório'),
+    agency_number: z.string().min(1, 'Número da agência é obrigatório'),
+    account_type: z.enum(['corrente', 'poupanca'], {
+        errorMap: () => ({ message: 'Selecione o tipo de conta' })
+    })
+});
+
+
 // Helper function to validate and parse
 export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): T {
     try {

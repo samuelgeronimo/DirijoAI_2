@@ -100,7 +100,7 @@ export async function InstructorSidebar() {
                     </Link>
                     <Link
                         className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
-                        href="#"
+                        href="/instructor/wallet"
                     >
                         <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
                             account_balance_wallet

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getPlatformTakeRate } from "@/app/admin/actions";
 import { logger } from "@/utils/logger";
-import { LessonIdSchema, SalesFeedbackSchema, LedgerMetadataSchema, validateInput } from "@/utils/validation/schemas";
+import { LessonIdSchema, SalesFeedbackSchema, LedgerMetadataSchema, BankDetailsSchema, validateInput } from "@/utils/validation/schemas";
 import type { SalesFeedback, LessonUpdatePayload } from "@/types/actions";
 
 export async function startLesson(lessonId: string) {
@@ -160,8 +160,45 @@ export async function completeLesson(feedbackData?: SalesFeedback) {
 
     logger.info('Lesson completed successfully', { lessonId: lesson.id });
 
-    revalidatePath('/instructor/dashboard');
-    revalidatePath('/student/dashboard');
     revalidatePath('/student/performance');
     redirect('/instructor/dashboard');
 }
+
+export async function updateBankDetails(formData: {
+    pix_key: string;
+    bank_name: string;
+    account_number: string;
+    agency_number: string;
+    account_type: string;
+}) {
+    const validated = validateInput(BankDetailsSchema, formData);
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect('/instructor/login');
+    }
+
+    const { error } = await supabase
+        .from('instructors')
+        .update({
+            pix_key: validated.pix_key,
+            bank_name: validated.bank_name,
+            account_number: validated.account_number,
+            agency_number: validated.agency_number,
+            account_type: validated.account_type,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+    if (error) {
+        logger.error('Failed to update bank details', { instructorId: user.id, error: error.message });
+        throw new Error(`Erro ao salvar dados bancários: ${error.message}`);
+    }
+
+    logger.info('Bank details updated successfully', { instructorId: user.id });
+    revalidatePath('/instructor/wallet');
+    return { success: true };
+}
+
