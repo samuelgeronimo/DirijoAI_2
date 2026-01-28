@@ -16,13 +16,11 @@ export default function HeroSection() {
             navigator.geolocation.getCurrentPosition(async (position: GeolocationPosition) => {
                 try {
                     const { latitude, longitude } = position.coords;
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    const response = await fetch(`/api/location/reverse?lat=${latitude}&lon=${longitude}`);
                     const data = await response.json();
                     if (data.address) {
                         const city = data.address.city || data.address.town || data.address.village || "";
-                        const state = data.address.state || "";
-                        const formattedParams = city;
-                        setLocationInput(formattedParams);
+                        setLocationInput(city);
                     }
                 } catch (error) {
                     console.error("Error fetching location", error);

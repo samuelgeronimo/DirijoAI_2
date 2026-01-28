@@ -1,72 +1,21 @@
 "use client";
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import AuthModal from './auth/AuthModal';
-import { createClient } from '@/utils/supabase/client';
 
 import HeroSection from '@/components/landing/HeroSection';
+import LandingHeader from '@/components/landing/LandingHeader';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
-export default function LandingPage() {
-    const router = useRouter();
-    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-    const [user, setUser] = useState<unknown>(null);
+import AuthModal from '@/components/auth/AuthModal';
 
-    useEffect(() => {
-        // Check Auth
-        const supabase = createClient();
-        const checkUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-        };
-        checkUser();
-    }, []);
+export default function LandingPage() {
+    const [isAuthModalOpen, setIsAuthModalOpen] = React.useState(false);
 
     return (
         <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-brand-accent selection:text-brand-dark">
-            <header className="fixed top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-                <div className="max-w-[1200px] mx-auto flex items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-2">
-                        <div className="bg-brand-cta text-white p-1 rounded-lg">
-                            <span className="material-symbols-outlined text-3xl">local_taxi</span>
-                        </div>
-                        <h2 className="text-brand-dark text-2xl font-black tracking-tighter uppercase italic">
-                            Dirijo<span className="text-brand-cta">.ai</span>
-                        </h2>
-                    </div>
-                    <nav className="hidden md:flex items-center gap-6">
-                        <a href="#como-funciona" className="text-sm font-bold text-slate-600 hover:text-brand-cta uppercase tracking-wide transition-colors">
-                            Como Funciona
-                        </a>
-                        <a href="#depoimentos" className="text-sm font-bold text-slate-600 hover:text-brand-cta uppercase tracking-wide transition-colors">
-                            Depoimentos
-                        </a>
-                        <div className="flex gap-3 ml-4">
-                            <Link href="/instructor" className="text-sm font-bold text-slate-700 hover:text-brand-dark px-4 py-2">
-                                Sou Instrutor
-                            </Link>
-                            {user ? (
-                                <Link
-                                    href="/student/dashboard"
-                                    className="bg-brand-dark text-white text-sm font-bold px-6 py-2 rounded-full hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2"
-                                >
-                                    <span className="material-symbols-outlined text-sm">person</span>
-                                    Meu Perfil
-                                </Link>
-                            ) : (
-                                <button
-                                    onClick={() => setIsAuthModalOpen(true)}
-                                    className="bg-brand-dark text-white text-sm font-bold px-6 py-2 rounded-full hover:bg-slate-800 transition-all shadow-lg"
-                                >
-                                    Entrar
-                                </button>
-                            )}
-                        </div>
-                    </nav>
-                </div>
-            </header>
+            <LandingHeader />
 
             <main className="">
                 <HeroSection />
@@ -186,10 +135,11 @@ export default function LandingPage() {
                             <div className="w-[240px] md:w-[280px] aspect-[9/16] bg-slate-900 rounded-2xl relative shrink-0 snap-center shadow-2xl group overflow-hidden cursor-pointer">
                                 <Image
                                     src="https://images.unsplash.com/photo-1549488497-29367858c89b?q=80&w=1974&auto=format&fit=crop"
-                                    alt="Student Happy"
+                                    alt="Estudante aprovada comemorando"
                                     fill
+                                    priority
                                     className="object-cover opacity-60 group-hover:scale-105 transition-transform duration-500"
-                                    sizes="(max-width: 768px) 240px, 280px"
+                                    sizes="(max-width: 640px) 240px, (max-width: 768px) 280px, 300px"
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/40">

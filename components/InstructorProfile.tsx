@@ -53,12 +53,21 @@ interface Instructor {
     instructor_availability: Availability[];
 }
 
-export default function InstructorProfile({ instructorId }: InstructorProfileProps) {
+interface InstructorProfileProps {
+    instructorId: string;
+    initialInstructor?: Instructor | null;
+    initialReviews?: Review[];
+    initialGallery?: SuccessStory[];
+}
+
+// ... interfaces remain the same ...
+
+export default function InstructorProfile({ instructorId, initialInstructor, initialReviews, initialGallery }: InstructorProfileProps) {
     const router = useRouter();
-    const [instructor, setInstructor] = useState<Instructor | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [reviews, setReviews] = useState<Review[]>([]);
-    const [galleryPhotos, setGalleryPhotos] = useState<SuccessStory[]>([]);
+    const [instructor, setInstructor] = useState<Instructor | null>(initialInstructor || null);
+    const [loading, setLoading] = useState(!initialInstructor);
+    const [reviews, setReviews] = useState<Review[]>(initialReviews || []);
+    const [galleryPhotos, setGalleryPhotos] = useState<SuccessStory[]>(initialGallery || []);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -96,19 +105,15 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
     useEffect(() => {
         async function fetchBookings() {
             if (!selectedDate || !instructorId) return;
-
+            // ... booking fetch logic ...
             const supabase = createClient();
-
-            // Construct range for the entire day (Local Time -> ISO String)
-            // We want to match lessons that fall on this specific YYYY-MM-DD in the local timezone
-            // Best approach: filter by range in ISO format
             const startOfDay = new Date(selectedDate);
             startOfDay.setHours(0, 0, 0, 0);
 
             const endOfDay = new Date(selectedDate);
             endOfDay.setHours(23, 59, 59, 999);
 
-            const { data: lessons, error } = await supabase
+            const { data: lessons } = await supabase
                 .rpc('get_instructor_busy_slots', {
                     p_instructor_id: instructorId,
                     p_start_date: startOfDay.toISOString(),
@@ -118,8 +123,6 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
             if (lessons) {
                 const busyTimes = lessons.map((lesson: { scheduled_at: string }) => {
                     const lessonDate = new Date(lesson.scheduled_at);
-                    // Format as "H:00" or "HH:00" depending on storage, matching getSlotsForDate
-                    // getSlotsForDate produces "8:00", "9:00"...
                     return `${lessonDate.getHours()}:00`;
                 });
                 setBookedSlots(busyTimes);
@@ -127,7 +130,6 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                 setBookedSlots([]);
             }
         }
-
         fetchBookings();
     }, [selectedDate, instructorId]);
 
@@ -196,13 +198,19 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
     }
 
     useEffect(() => {
+        const supabase = createClient();
+        supabase.auth.getUser().then(({ data }) => {
+            setCurrentUser(data.user);
+        });
+    }, []);
+
+    // Fetch Data Effect - Only if no initial data
+    useEffect(() => {
         async function fetchInstructorData() {
+            if (initialInstructor) return; // Skip if we have initial data
+
             setLoading(true);
             const supabase = createClient();
-
-            // Fetch current user
-            const { data: userData } = await supabase.auth.getUser();
-            setCurrentUser(userData.user);
 
             // Fetch Instructor Details
             const { data: instructorData, error: instructorError } = await supabase
@@ -225,21 +233,16 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
             if (instructorError) {
                 console.error('Error fetching instructor:', instructorError);
             } else {
-                // Fix issue where profiles might be returned as an array by Supabase join
                 const profilesData = Array.isArray(instructorData.profiles) ? instructorData.profiles[0] : instructorData.profiles;
-
-                // Ensure we get the latest vehicle if multiple exist (due to previous bug)
                 let vehiclesData = instructorData.vehicles;
                 if (Array.isArray(vehiclesData) && vehiclesData.length > 0) {
                     // @ts-ignore
                     vehiclesData = vehiclesData.sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
-                    // Keep as array for type compatibility, but the first one will be the latest
                 }
-
                 setInstructor({ ...instructorData, profiles: profilesData, vehicles: vehiclesData } as unknown as Instructor);
             }
 
-            // Fetch Success Gallery Photos from Database (Metadata included)
+            // Fetch Success Gallery
             const { data: galleryItems } = await supabase
                 .from('success_stories')
                 .select('*')
@@ -247,15 +250,10 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                 .order('created_at', { ascending: false })
                 .limit(10);
 
-            if (galleryItems) {
-                setGalleryPhotos(galleryItems);
-            } else {
-                setGalleryPhotos([]);
-            }
-
+            if (galleryItems) setGalleryPhotos(galleryItems);
 
             // Fetch Reviews
-            const { data: reviewsData, error: reviewsError } = await supabase
+            const { data: reviewsData } = await supabase
                 .from('reviews')
                 .select(`
                     id,
@@ -268,9 +266,7 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
                 .order('created_at', { ascending: false })
                 .limit(5);
 
-            if (reviewsError) {
-                console.error("Error fetching reviews", reviewsError);
-            } else if (reviewsData) {
+            if (reviewsData) {
                 // @ts-ignore
                 setReviews(reviewsData.map(r => ({
                     id: r.id,
@@ -285,10 +281,8 @@ export default function InstructorProfile({ instructorId }: InstructorProfilePro
             setLoading(false);
         }
 
-        if (instructorId) {
-            fetchInstructorData();
-        }
-    }, [instructorId]);
+        fetchInstructorData();
+    }, [instructorId, initialInstructor]);
 
     /* Badge Helper */
     const getBadgeInfo = (badgeCode: string) => {

@@ -1,6 +1,25 @@
 import SearchResults from '@/components/SearchResults';
 import { Suspense } from 'react';
 import { createClient } from '@/utils/supabase/server';
+import { Metadata } from 'next';
+
+export async function generateMetadata(props: { searchParams: SearchParams }): Promise<Metadata> {
+    const searchParams = await props.searchParams;
+    const query = searchParams.q || '';
+
+    if (!query) {
+        return {
+            title: 'Busca de Instrutores',
+            description: 'Encontre os melhores instrutores de direção independentes perto de você.'
+        };
+    }
+
+    return {
+        title: `Instrutores de Direção em ${query}`,
+        description: `Encontre instrutores de direção qualificados em ${query}. Aulas práticas individuais com foco na sua aprovação.`,
+        keywords: [`instrutor de direção em ${query}`, `aulas de direção ${query}`, 'CNH', 'autoescola']
+    };
+}
 
 type SearchParams = Promise<{ q?: string; page?: string }>;
 
