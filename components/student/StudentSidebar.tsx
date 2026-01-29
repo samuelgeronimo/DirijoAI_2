@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { SignOutButton } from "./SignOutButton";
+import { StudentSidebarNav } from "./StudentSidebarNav";
 
 export async function StudentSidebar() {
     const supabase = await createClient();
@@ -40,51 +40,7 @@ export async function StudentSidebar() {
                         </div>
                     </div>
                     {/* Navigation Links */}
-                    <nav className="flex flex-col gap-2">
-                        <Link
-                            className="flex items-center gap-3 px-3 py-3 rounded-lg bg-student-primary/10 text-student-primary"
-                            href="/student/dashboard"
-                        >
-                            <span className="material-symbols-outlined">home</span>
-                            <span className="text-sm font-medium leading-normal">Home</span>
-                        </Link>
-                        <Link
-                            className="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                            href="/student/change-instructor"
-                        >
-                            <span className="material-symbols-outlined">search</span>
-                            <span className="text-sm font-medium leading-normal">
-                                Buscar Instrutor
-                            </span>
-                        </Link>
-                        <Link
-                            className="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                            href="/student/reviews"
-                        >
-                            <span className="material-symbols-outlined">star</span>
-                            <span className="text-sm font-medium leading-normal">
-                                Avaliar Instrutor
-                            </span>
-                        </Link>
-                        <Link
-                            className="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                            href="/student/schedule"
-                        >
-                            <span className="material-symbols-outlined">calendar_month</span>
-                            <span className="text-sm font-medium leading-normal">
-                                Agenda
-                            </span>
-                        </Link>
-                        <Link
-                            className="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                            href="/student/profile"
-                        >
-                            <span className="material-symbols-outlined">person</span>
-                            <span className="text-sm font-medium leading-normal">
-                                Perfil
-                            </span>
-                        </Link>
-                    </nav>
+                    <StudentSidebarNav />
                 </div>
             </div>
             {/* Sidebar Footer */}

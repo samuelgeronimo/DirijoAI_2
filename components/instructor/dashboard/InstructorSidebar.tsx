@@ -1,6 +1,7 @@
-import Link from "next/link";
+
 import { createClient } from "@/utils/supabase/server";
 import { InstructorSignOutButton } from "./InstructorSignOutButton";
+import { InstructorSidebarNav } from "./InstructorSidebarNav";
 
 export async function InstructorSidebar() {
     const supabase = await createClient();
@@ -36,78 +37,7 @@ export async function InstructorSidebar() {
                         </p>
                     </div>
                 </div>
-                <nav className="flex flex-col gap-2">
-                    <Link
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-instructor-primary text-instructor-bg-dark font-bold shadow-lg shadow-instructor-primary/20 transition-all"
-                        href="/instructor/dashboard"
-                    >
-                        <span className="material-symbols-outlined">dashboard</span>
-                        <span>Início</span>
-                    </Link>
-                    <Link
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-instructor-primary/10 text-instructor-primary border border-instructor-primary/20 shadow-[0_0_15px_rgba(19,236,91,0.1)] transition-all group"
-                        href="/instructor/schedule"
-                    >
-                        <span className="material-symbols-outlined filled group-hover:scale-110 transition-transform">
-                            calendar_month
-                        </span>
-                        <span className="font-semibold">Agenda</span>
-                    </Link>
-                    <Link
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
-                        href="/instructor/students"
-                    >
-                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
-                            group
-                        </span>
-                        <span>Alunos</span>
-                    </Link>
-                    <Link
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
-                        href="/instructor/reviews"
-                    >
-                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
-                            reviews
-                        </span>
-                        <span>Avaliações</span>
-                    </Link>
-                    <Link
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
-                        href="/instructor/vehicle"
-                    >
-                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
-                            directions_car
-                        </span>
-                        <span>Veículo</span>
-                    </Link>
-                    <Link
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 shadow-sm transition-all group"
-                        href="/instructor/compliance"
-                    >
-                        <span className="material-symbols-outlined filled group-hover:scale-110 transition-transform">
-                            verified_user
-                        </span>
-                        <span className="font-semibold">Documentação</span>
-                    </Link>
-                    <Link
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
-                        href="/instructor/profile"
-                    >
-                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
-                            person
-                        </span>
-                        <span>Perfil</span>
-                    </Link>
-                    <Link
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
-                        href="/instructor/wallet"
-                    >
-                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform font-light">
-                            account_balance_wallet
-                        </span>
-                        <span>Carteira</span>
-                    </Link>
-                </nav>
+                <InstructorSidebarNav />
             </div>
             <div className="mt-auto p-6">
                 <div className="bg-instructor-surface-dark-2 rounded-2xl p-4 flex items-center gap-3 border border-white/5">
