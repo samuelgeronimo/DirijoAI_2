@@ -180,7 +180,7 @@ export async function updateBankDetails(formData: {
         redirect('/instructor/login');
     }
 
-    const { error } = await supabase
+    const { error, count } = await supabase
         .from('instructors')
         .update({
             pix_key: validated.pix_key,
@@ -189,12 +189,17 @@ export async function updateBankDetails(formData: {
             agency_number: validated.agency_number,
             account_type: validated.account_type,
             updated_at: new Date().toISOString()
-        })
+        }, { count: 'exact' })
         .eq('id', user.id);
 
     if (error) {
         logger.error('Failed to update bank details', { instructorId: user.id, error: error.message });
         throw new Error(`Erro ao salvar dados bancários: ${error.message}`);
+    }
+
+    if (count === 0) {
+        logger.error('No instructor record found to update', { instructorId: user.id });
+        throw new Error('Perfil de instrutor não encontrado. Por favor, complete o onboarding.');
     }
 
     logger.info('Bank details updated successfully', { instructorId: user.id });

@@ -36,13 +36,25 @@ export const ReviewSchema = z.object({
 
 // Bank details validation
 export const BankDetailsSchema = z.object({
-    pix_key: z.string().regex(/^\d{11}$/, 'O PIX deve ser o CPF (11 dígitos numéricos)'),
+    pix_key: z.string()
+        .transform((val) => val.replace(/\D/g, '')) // Remove tudo que não for número
+        .refine((val) => val.length === 11, 'O PIX deve ser o CPF (11 dígitos)'),
+
     bank_name: z.string().min(2, 'Nome do banco é obrigatório'),
-    account_number: z.string().min(1, 'Número da conta é obrigatório'),
-    agency_number: z.string().min(1, 'Número da agência é obrigatório'),
-    account_type: z.enum(['corrente', 'poupanca'], {
-        errorMap: () => ({ message: 'Selecione o tipo de conta' })
-    })
+
+    // Aceita conta com hífen (ex: 12345-6) mas salva limpo ou valida o tamanho
+    account_number: z.string()
+        .transform((val) => val.replace(/[^0-9a-zA-Z]/g, '')) // Remove caracteres especiais
+        .refine((val) => val.length > 0, 'Número da conta é obrigatório'),
+
+    agency_number: z.string()
+        .transform((val) => val.replace(/[^0-9a-zA-Z]/g, ''))
+        .refine((val) => val.length > 0, 'Número da agência é obrigatório'),
+
+    account_type: z.string()
+    .refine((val) => ['corrente', 'poupanca'].includes(val), {
+        message: "Selecione o tipo de conta (corrente ou poupança)"
+    }),
 });
 
 
