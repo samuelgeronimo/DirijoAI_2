@@ -207,3 +207,47 @@ export async function updateBankDetails(formData: {
     return { success: true };
 }
 
+
+import { createAdminClient } from "@/utils/supabase/admin";
+
+export async function replyToDispute(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    const disputeId = formData.get("disputeId") as string;
+    const content = formData.get("content") as string;
+
+    if (!disputeId || !content) {
+        throw new Error("Missing fields");
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // 1. Insert Reply
+    const { error: msgError } = await adminSupabase
+        .from('dispute_messages')
+        .insert({
+            dispute_id: disputeId,
+            sender_id: user.id,
+            content: content,
+            is_system_message: false
+        });
+
+    if (msgError) {
+        logger.error("Error replying to dispute:", { error: msgError.message });
+        throw new Error("Failed to send reply");
+    }
+
+    // 2. Update Dispute Status to 'analyzing' if it was 'open'
+    // This allows admin to see there's a response
+    await adminSupabase
+        .from('disputes')
+        .update({ status: 'analyzing', admin_notes: 'Instrutor respondeu. Aguardando análise.' })
+        .eq('id', disputeId)
+        .eq('status', 'open');
+
+    revalidatePath('/instructor/schedule');
+    redirect('/instructor/schedule');
+}

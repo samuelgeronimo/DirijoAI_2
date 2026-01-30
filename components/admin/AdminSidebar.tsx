@@ -4,7 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+    openDisputesCount?: number;
+}
+
+export function AdminSidebar({ openDisputesCount = 0 }: AdminSidebarProps) {
     const pathname = usePathname();
 
     const isActive = (path: string) => pathname === path;
@@ -44,10 +48,13 @@ export function AdminSidebar() {
                         <p className="text-sm font-medium">The Bank</p>
                     </Link>
                     <Link
-                        href="#"
-                        className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648]/50 text-[#92adc9] transition-colors"
+                        href="/admin/users"
+                        className={`flex items-center gap-3 px-3 py-3 rounded-lg border transition-all ${isActive("/admin/users")
+                            ? "bg-[#233648] text-white shadow-sm border-[#334b63]"
+                            : "border-transparent text-[#92adc9] hover:bg-[#233648]/50"
+                            }`}
                     >
-                        <span className="material-symbols-outlined">group</span>
+                        <span className="material-symbols-outlined text-[#137fec]">group</span>
                         <p className="text-sm font-medium">Usuários</p>
                     </Link>
                     <Link
@@ -59,9 +66,11 @@ export function AdminSidebar() {
                     >
                         <span className="material-symbols-outlined text-[#137fec]" style={{ fontVariationSettings: "'FILL' 1" }}>gavel</span>
                         <p className="text-sm font-medium">Disputas</p>
-                        <span className="ml-auto bg-[#ef4444] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                            3
-                        </span>
+                        {openDisputesCount > 0 && (
+                            <span className="ml-auto bg-[#ef4444] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                {openDisputesCount}
+                            </span>
+                        )}
                     </Link>
                     <Link
                         href="/admin/growth"

@@ -1,53 +1,12 @@
-"use client";
+interface FinanceStatsProps {
+    stats: {
+        floatTotal: number;
+        pendingWithdrawals: number;
+        netProfit: number;
+    };
+}
 
-import { createClient } from "@/utils/supabase/client";
-import { useEffect, useState } from "react";
-
-export function FinanceStats() {
-    const [stats, setStats] = useState({
-        floatTotal: 0,
-        pendingWithdrawals: 0,
-        netProfit: 854000, // Mocked for now
-    });
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            const supabase = createClient();
-
-            // 1. Float Total: Sum of balance_cents from instructors
-            const { data: instructors } = await supabase
-                .from("instructors")
-                .select("balance_cents");
-
-            let floatTotal = 0;
-            if (instructors) {
-                floatTotal = instructors.reduce(
-                    (sum, inst) => sum + (inst.balance_cents || 0),
-                    0
-                );
-            }
-
-            // 2. Pending Withdrawals: Sum of amount_cents from payouts (status requested or risk_check)
-            const { data: payouts } = await supabase
-                .from("payouts")
-                .select("amount_cents")
-                .in("status", ["requested", "risk_check"]);
-
-            let pendingWithdrawals = 0;
-            if (payouts) {
-                pendingWithdrawals = payouts.reduce(
-                    (sum, pay) => sum + (pay.amount_cents || 0),
-                    0
-                );
-            }
-
-            setStats((prev) => ({ ...prev, floatTotal, pendingWithdrawals }));
-            setLoading(false);
-        };
-
-        fetchStats();
-    }, []);
+export function FinanceStats({ stats }: FinanceStatsProps) {
 
     const formatCurrency = (cents: number) => {
         return new Intl.NumberFormat("pt-BR", {
@@ -55,16 +14,6 @@ export function FinanceStats() {
             currency: "BRL",
         }).format(cents / 100);
     };
-
-    if (loading) {
-        return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse">
-                {[1, 2].map((i) => (
-                    <div key={i} className="h-40 bg-[#1e293b] rounded-xl border border-[#324d67]"></div>
-                ))}
-            </div>
-        )
-    }
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

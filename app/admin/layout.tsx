@@ -1,3 +1,4 @@
+import { getOpenDisputesCount } from "@/utils/admin/dashboard-metrics";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
@@ -27,9 +28,11 @@ export default async function AdminLayout({
         return redirect("/");
     }
 
+    const openDisputesCount = await getOpenDisputesCount();
+
     return (
         <div className="bg-[#f6f7f8] dark:bg-[#111a22] text-slate-900 dark:text-white font-display overflow-hidden h-screen flex">
-            <AdminSidebar />
+            <AdminSidebar openDisputesCount={openDisputesCount} />
             <div className="flex-1 flex flex-col h-full overflow-hidden relative">
                 {children}
             </div>

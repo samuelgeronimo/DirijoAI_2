@@ -1,6 +1,31 @@
 "use client";
 
-export function ConflictCard() {
+"use client";
+
+import { DisputeDetail } from "@/types/admin-dispute";
+
+interface ConflictCardProps {
+    student: DisputeDetail['student'];
+    instructor: DisputeDetail['instructor'];
+    lesson: DisputeDetail['lesson'];
+}
+
+export function ConflictCard({ student, instructor, lesson }: ConflictCardProps) {
+    // Determine instructor profile safely
+    const instructorProfile = instructor?.profiles;
+    const instructorName = instructorProfile?.full_name || 'Instrutor';
+    const instructorAvatar = instructorProfile?.avatar_url;
+    const instructorRating = instructor?.rating || 5.0;
+
+    // Determine student profile
+    const studentName = student?.full_name || 'Aluno';
+    const studentAvatar = student?.avatar_url;
+    // reputation_score is usually 0-100 or 0-5. Assuming 0-100, divide by 20 for 5-star scale.
+    // If it's already 5, then just use it. Let's assume 0-100 for now based on 'reputation_score'.
+    const studentRating = (student?.reputation_score || 100) / 20;
+
+    const lessonTime = lesson?.scheduled_at ? new Date(lesson.scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
     return (
         <div className="bg-[#111a22] rounded-xl border border-[#324d67] shadow-lg overflow-hidden">
             <div className="p-5 flex flex-col md:flex-row gap-6">
@@ -12,8 +37,7 @@ export function ConflictCard() {
                             <div
                                 className="size-16 rounded-full bg-cover bg-center border-2 border-[#324d67] shadow-xl"
                                 style={{
-                                    backgroundImage:
-                                        'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDhveIWxQIb5Hyv62x3fu07zqsMkw3Mka1-K7A6fRhWvqOP6dmUEuus3eauD9SJyqcMu3vxDF7NedEKW4qBP7dz6HNe0_GGG5HKsZ9X3aXn7mHsf44t9aOFPqwA9xsPFKTmpccBG56Xukz5tmwzT0QANjRkZxIRluJPI_X694Mjry2IU0VY91yUdcJiHR__1B14bj9WuSZkvRVfuGDuSDLLixGWFvje5mtWJRvHK88CEdWff80peaDJPxSmOfHw369E41S1wYTAeRog")',
+                                    backgroundImage: `url("${instructorAvatar || 'https://via.placeholder.com/150'}")`,
                                 }}
                             ></div>
                             <div className="absolute -bottom-1 -right-1 bg-[#137fec] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#111a22]">
@@ -21,7 +45,7 @@ export function ConflictCard() {
                             </div>
                         </div>
                         <div className="text-center">
-                            <p className="text-white font-bold text-sm">Roberto A.</p>
+                            <p className="text-white font-bold text-sm">{instructorName}</p>
                             <div className="flex items-center justify-center gap-1 text-xs text-[#92adc9]">
                                 <span
                                     className="material-symbols-outlined text-[12px] text-yellow-400"
@@ -29,7 +53,7 @@ export function ConflictCard() {
                                 >
                                     star
                                 </span>
-                                4.9
+                                {Number(instructorRating).toFixed(1)}
                             </div>
                         </div>
                     </div>
@@ -39,10 +63,10 @@ export function ConflictCard() {
                             Aula
                         </span>
                         <span className="text-white font-mono text-lg font-bold">
-                            14:00
+                            {lessonTime}
                         </span>
                         <span className="text-[10px] text-emerald-400 font-medium">
-                            Confirmada
+                            {lesson?.status || 'Confirmada'}
                         </span>
                     </div>
                     {/* Student */}
@@ -51,8 +75,7 @@ export function ConflictCard() {
                             <div
                                 className="size-16 rounded-full bg-cover bg-center border-2 border-[#324d67] shadow-xl"
                                 style={{
-                                    backgroundImage:
-                                        'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAKEFq8q7-p4Sp5lGFh3X7cgUOPr72pHkggse-zXs405ZtnVOR_vloiCbqFA_dV_71nUiyV31_JoqBStntglWCqDXwXBnAgobDHqToGxxrnjOKTbh4kR6YTTCS4QasZF4L0gcZEIJoZ6sC9QWWSIutP7nLu0JXcYtN0zttnM-tdH_OhYtWMpw4QNiqn0z7GnRjzxSEgJsXMy6cZISrbwlgZO8mOwg_OgDJVMBd0u29Yik2GO-kWASBezY0g_dwuFPA_FBOr2-LV8Zf2")',
+                                    backgroundImage: `url("${studentAvatar || 'https://via.placeholder.com/150'}")`,
                                 }}
                             ></div>
                             <div className="absolute -bottom-1 -left-1 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#111a22]">
@@ -60,7 +83,7 @@ export function ConflictCard() {
                             </div>
                         </div>
                         <div className="text-center">
-                            <p className="text-white font-bold text-sm">Lucas F.</p>
+                            <p className="text-white font-bold text-sm">{studentName}</p>
                             <div className="flex items-center justify-center gap-1 text-xs text-[#92adc9]">
                                 <span
                                     className="material-symbols-outlined text-[12px] text-yellow-400"
@@ -68,13 +91,14 @@ export function ConflictCard() {
                                 >
                                     star
                                 </span>
-                                4.2
+                                {studentRating.toFixed(1)}
                             </div>
                         </div>
                     </div>
                 </div>
                 {/* Map Preview */}
                 <div className="w-full md:w-[320px] h-[120px] rounded-lg border border-[#324d67] bg-[#1a2632] relative overflow-hidden group">
+                    {/* Keeping static map for now as coordinates logic is complex */}
                     <div
                         className="absolute inset-0 opacity-20"
                         style={{
@@ -93,15 +117,8 @@ export function ConflictCard() {
                             location_on
                         </span>
                         <div className="bg-[#101922]/90 text-white text-[10px] px-2 py-0.5 rounded shadow-lg border border-[#324d67] whitespace-nowrap">
-                            Check-in: 13:55
+                            {lesson?.pickup_address || "Ponto de Encontro"}
                         </div>
-                    </div>
-                    <div className="absolute bottom-2 right-2">
-                        <button className="bg-white/10 hover:bg-white/20 text-white p-1 rounded transition-colors">
-                            <span className="material-symbols-outlined text-sm">
-                                open_in_full
-                            </span>
-                        </button>
                     </div>
                 </div>
             </div>

@@ -126,7 +126,7 @@ export function StudentDashboardGrid({ nextLesson, balance, instructorId, totalL
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <Link
                         className="flex flex-col items-center justify-center gap-3 p-6 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-student-primary/50 hover:shadow-md transition-all group"
-                        href="#"
+                        href="/student/history"
                     >
                         <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/30 text-student-primary flex items-center justify-center group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined">history</span>

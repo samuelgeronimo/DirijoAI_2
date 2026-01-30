@@ -2,7 +2,29 @@
 
 import Link from "next/link";
 
-export function SupplyAlertWidget() {
+interface SupplyAlertWidgetProps {
+    pendingCount: number;
+}
+
+export function SupplyAlertWidget({ pendingCount = 0 }: SupplyAlertWidgetProps) {
+    if (pendingCount === 0) {
+        return (
+            <div className="lg:col-span-1 flex flex-col">
+                <div className="flex-1 rounded-xl bg-[#233648] border border-[#334b63] p-6 flex flex-col items-center justify-center text-center">
+                    <div className="z-10 bg-[#0bda5b]/20 rounded-full p-4 mb-4">
+                        <span className="material-symbols-outlined text-4xl text-[#0bda5b]">
+                            check_circle
+                        </span>
+                    </div>
+                    <h3 className="text-white text-xl font-bold mb-1">Tudo em dia!</h3>
+                    <p className="text-[#92adc9] text-sm">
+                        Nenhum instrutor pendente de aprovação.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="lg:col-span-1 flex flex-col">
             <div className="flex-1 rounded-xl bg-[#2b1616] border border-[#ef4444] p-6 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-lg shadow-[#ef4444]/10 animate-[pulse-red_2s_infinite]">
@@ -25,7 +47,7 @@ export function SupplyAlertWidget() {
                         no_accounts
                     </span>
                 </div>
-                <h3 className="z-10 text-white text-3xl font-bold mb-1">15</h3>
+                <h3 className="z-10 text-white text-3xl font-bold mb-1">{pendingCount}</h3>
                 <p className="z-10 text-[#ef4444] font-bold uppercase tracking-wider text-sm mb-4">
                     Instrutores Pendentes
                 </p>

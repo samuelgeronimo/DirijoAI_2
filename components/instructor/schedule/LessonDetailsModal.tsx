@@ -1,4 +1,4 @@
-'use client';
+import Link from "next/link";
 
 import { formatCurrency } from "@/utils/instructorMetrics";
 import { formatTime, formatDateTime } from "@/utils/instructorMetrics";
@@ -42,6 +42,7 @@ export function LessonDetailsModal({
             in_progress: { text: 'Em Andamento', color: 'bg-instructor-primary/20 text-instructor-primary border-instructor-primary/30' },
             completed: { text: 'Concluída', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
             canceled: { text: 'Cancelada', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+            disputed: { text: 'Em Disputa', color: 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' },
         };
         const badge = badges[status as keyof typeof badges] || badges.scheduled;
         return (
@@ -223,6 +224,25 @@ export function LessonDetailsModal({
                                 <span className="material-symbols-outlined text-[20px]">cancel</span>
                                 Cancelar
                             </button>
+                        )}
+
+                        {/* Report Issue Action */}
+                        {lesson.status !== 'disputed' ? (
+                            <Link
+                                href={`/instructor/disputes/${lesson.id}`}
+                                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-500/20 hover:bg-gray-500/30 text-gray-400 font-medium rounded-lg transition-colors border border-gray-500/30 ml-auto"
+                                title="Reportar Problema"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">report_problem</span>
+                            </Link>
+                        ) : (
+                            <Link
+                                href={`/instructor/disputes/${lesson.id}`}
+                                className="flex items-center justify-center gap-2 px-4 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 font-medium rounded-lg transition-colors border border-yellow-500/30 ml-auto"
+                                title="Ver Disputa"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">gavel</span>
+                            </Link>
                         )}
                     </div>
                 </div>

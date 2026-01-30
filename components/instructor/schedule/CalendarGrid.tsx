@@ -107,6 +107,8 @@ function WeekView({ lessons, weekDays, onLessonClick, selectedLesson }: {
                 return 'border-gray-500 bg-gray-700/50';
             case 'canceled':
                 return 'border-red-500 bg-red-900/20';
+            case 'disputed':
+                return 'border-yellow-500 bg-yellow-900/20';
             default:
                 return 'border-gray-500 bg-[#2e3b52]';
         }
@@ -224,6 +226,8 @@ function DayView({ lessons, currentDate, onLessonClick, selectedLesson }: {
                 return 'border-gray-500 bg-gray-700/50';
             case 'canceled':
                 return 'border-red-500 bg-red-900/20';
+            case 'disputed':
+                return 'border-yellow-500 bg-yellow-900/20';
             default:
                 return 'border-gray-500 bg-[#2e3b52]';
         }
