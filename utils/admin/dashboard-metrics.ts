@@ -177,17 +177,22 @@ export async function getGrowthMetrics(days = 30) {
 
 
 export async function getOpenDisputesCount() {
-  const supabase = createAdminClient();
+  try {
+    const supabase = createAdminClient();
 
-  const { count, error } = await supabase
-    .from("disputes")
-    .select("*", { count: "exact", head: true })
-    .in("status", ["open", "analyzing"]);
+    const { count, error } = await supabase
+      .from("disputes")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["open", "analyzing"]);
 
-  if (error) {
-    console.error("Error fetching open disputes count:", error);
+    if (error) {
+      console.error("Error fetching open disputes count:", error);
+      return 0;
+    }
+
+    return count || 0;
+  } catch (error) {
+    console.error("Error in getOpenDisputesCount (likely missing admin key):", error);
     return 0;
   }
-
-  return count || 0;
 }
